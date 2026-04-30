@@ -1,0 +1,3054 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, 
+          maximum-scale=1.0, user-scalable=no">
+    <title>Entre Linhas e Telas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 960px;
+            max-height: 540px;
+        }
+
+        canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            image-rendering: pixelated;
+        }
+
+        /* Mobile Controls */
+        #mobile-controls {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 120px;
+            z-index: 100;
+        }
+
+        .mobile-btn {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.4);
+            color: white;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+        }
+
+        .mobile-btn:active {
+            background: rgba(255,255,255,0.5);
+        }
+
+        #btn-left  { left: 20px; bottom: 30px; }
+        #btn-right { left: 100px; bottom: 30px; }
+        #btn-jump  { right: 20px; bottom: 30px; }
+        #btn-action{ right: 100px; bottom: 30px; }
+
+        /* Loading Screen */
+        #loading {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 200;
+            transition: opacity 1s;
+        }
+
+        #loading h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #4af;
+        }
+
+        #loading-bar {
+            width: 300px;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        #loading-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4af, #f4a);
+            transition: width 0.3s;
+        }
+
+        #loading-text {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #888;
+        }
+
+        @media (max-width: 768px) {
+            #mobile-controls { display: block; }
+            #game-container {
+                max-width: 100vw;
+                max-height: calc(100vh - 120px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading">
+        <h1>Entre Linhas e Telas</h1>
+        <div id="loading-bar">
+            <div id="loading-fill"></div>
+        </div>
+        <p id="loading-text">Carregando...</p>
+    </div>
+
+    <!-- Game Container -->
+    <div id="game-container"></div>
+
+    <!-- Mobile Controls -->
+    <div id="mobile-controls">
+        <div class="mobile-btn" id="btn-left">◀</div>
+        <div class="mobile-btn" id="btn-right">▶</div>
+        <div class="mobile-btn" id="btn-jump">▲</div>
+        <div class="mobile-btn" id="btn-action">●</div>
+    </div>
+
+    <!-- GAME SCRIPT - TUDO EM UM ARQUIVO -->
+    <script>
+// ══════════════════════════════════════════════════════
+// 🎮 ENTRE LINHAS E TELAS - JOGO COMPLETO
+// Engine: Canvas 2D Puro (sem dependências)
+// ══════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 1: CONFIGURAÇÃO GLOBAL
+// ══════════════════════════════════════════════════════
+
+const GAME_CONFIG = {
+    width: 960,
+    height: 540,
+    fps: 60,
+    gravity: 0.5,
+    title: "Entre Linhas e Telas",
+    version: "1.0.0"
+};
+
+const COLORS = {
+    black: '#000000',
+    white: '#ffffff',
+    red: '#ff3333',
+    blue: '#3388ff',
+    green: '#33ff88',
+    yellow: '#ffcc33',
+    purple: '#8833ff',
+    cyan: '#33ccff',
+    orange: '#ff8833',
+    pink: '#ff33aa',
+    darkBlue: '#0a0a2e',
+    neonBlue: '#00ccff',
+    neonGreen: '#00ff66',
+    neonRed: '#ff0044',
+    skin: '#ffcc99',
+    hair: '#332211',
+    shirt: '#3366cc',
+    pants: '#222244',
+    shoe: '#111111'
+};
+
+const KEYS = {
+    left: false,
+    right: false,
+    up: false,
+    down: false,
+    jump: false,
+    action: false,
+    escape: false
+};
+
+let canvas, ctx;
+let gameState = 'loading';
+let currentScene = null;
+let deltaTime = 0;
+let lastTime = 0;
+let isMobile = false;
+let mouseX = 0, mouseY = 0;
+let mouseDown = false;
+let frameCount = 0;
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 2: SISTEMA DE SAVE
+// ══════════════════════════════════════════════════════
+
+const SaveSystem = {
+    saveKey: 'entreLinhasETelas_save',
+    saveBlocked: false,
+    blockReason: '',
+
+    defaultData: {
+        currentPhase: 0,
+        playerHealth: 100,
+        playerMaxHealth: 100,
+        playerX: 100,
+        playerY: 300,
+        boss1Defeated: false,
+        boss2Defeated: false,
+        boss3Defeated: false,
+        finalBossDefeated: false,
+        boss1Mercy: false,
+        boss2Mercy: false,
+        boss3Mercy: false,
+        finalBossMercy: false,
+        finalBossTrust: 0,
+        dialoguesSeen: {},
+        checkpoints: {},
+        preBossSaved: {},
+        totalDeaths: 0,
+        totalPlayTime: 0,
+        achievements: {},
+        musicVolume: 0.7,
+        sfxVolume: 0.8
+    },
+
+    data: null,
+
+    init() {
+        this.load();
+    },
+
+    save() {
+        if (this.saveBlocked) {
+            console.log('⚠️ ' + this.blockReason);
+            DialogueSystem.showQuick(this.blockReason);
+            return false;
+        }
+        try {
+            localStorage.setItem(this.saveKey, JSON.stringify(this.data));
+            console.log('✅ Jogo salvo!');
+            return true;
+        } catch(e) {
+            console.error('❌ Erro ao salvar:', e);
+            return false;
+        }
+    },
+
+    load() {
+        try {
+            const saved = localStorage.getItem(this.saveKey);
+            if (saved) {
+                this.data = {...this.defaultData, ...JSON.parse(saved)};
+                console.log('✅ Save carregado!');
+            } else {
+                this.newGame();
+            }
+        } catch(e) {
+            this.newGame();
+        }
+    },
+
+    newGame() {
+        this.data = {...this.defaultData};
+        console.log('🆕 Novo jogo!');
+    },
+
+    deleteSave() {
+        localStorage.removeItem(this.saveKey);
+        this.newGame();
+    },
+
+    hasSave() {
+        return localStorage.getItem(this.saveKey) !== null;
+    },
+
+    blockSave(reason) {
+        this.saveBlocked = true;
+        this.blockReason = reason;
+    },
+
+    unblockSave() {
+        this.saveBlocked = false;
+        this.blockReason = '';
+    },
+
+    saveBeforeBoss(bossIndex) {
+        const wasBlocked = this.saveBlocked;
+        this.saveBlocked = false;
+        this.data.preBossSaved[bossIndex] = true;
+        this.data.playerHealth = this.data.playerMaxHealth;
+        this.save();
+        this.saveBlocked = wasBlocked;
+        DialogueSystem.showQuick('💾 Save automático antes da batalha!');
+        EffectsSystem.spawnSaveEffect(player.x, player.y);
+    },
+
+    setBossDefeated(index, mercy) {
+        const keys = ['boss1Defeated','boss2Defeated','boss3Defeated','finalBossDefeated'];
+        const mercyKeys = ['boss1Mercy','boss2Mercy','boss3Mercy','finalBossMercy'];
+        if (index < keys.length) {
+            this.data[keys[index]] = true;
+            this.data[mercyKeys[index]] = mercy;
+            this.data.currentPhase = index + 1;
+        }
+        const wasBlocked = this.saveBlocked;
+        this.saveBlocked = false;
+        this.save();
+        this.saveBlocked = wasBlocked;
+    }
+};
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 3: SISTEMA DE ÁUDIO
+// ══════════════════════════════════════════════════════
+
+const AudioSystem = {
+    audioCtx: null,
+    currentMusic: null,
+    musicGain: null,
+    sfxGain: null,
+
+    init() {
+        try {
+            this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            this.musicGain = this.audioCtx.createGain();
+            this.musicGain.connect(this.audioCtx.destination);
+            this.musicGain.gain.value = SaveSystem.data.musicVolume;
+            this.sfxGain = this.audioCtx.createGain();
+            this.sfxGain.connect(this.audioCtx.destination);
+            this.sfxGain.gain.value = SaveSystem.data.sfxVolume;
+        } catch(e) {
+            console.log('⚠️ Web Audio não suportado');
+        }
+    },
+
+    resume() {
+        if (this.audioCtx && this.audioCtx.state === 'suspended')
+            this.audioCtx.resume();
+    },
+
+    // Gera tom simples (substitui arquivos de áudio)
+    playTone(freq, duration, type = 'square', volume = 0.3) {
+        if (!this.audioCtx) return;
+        try {
+            const osc = this.audioCtx.createOscillator();
+            const gain = this.audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.value = freq;
+            gain.gain.value = volume * SaveSystem.data.sfxVolume;
+            gain.gain.exponentialRampToValueAtTime(0.001, 
+                this.audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(this.audioCtx.destination);
+            osc.start();
+            osc.stop(this.audioCtx.currentTime + duration);
+        } catch(e) {}
+    },
+
+    playJump()     { this.playTone(400, 0.1, 'square', 0.2); 
+                     this.playTone(600, 0.1, 'square', 0.2); },
+    playHit()      { this.playTone(150, 0.2, 'sawtooth', 0.3); },
+    playSelect()   { this.playTone(800, 0.05, 'square', 0.15); },
+    playDialogue() { this.playTone(500 + Math.random()*200, 0.03, 'square', 0.1); },
+    playBullet()   { this.playTone(200, 0.1, 'sawtooth', 0.15); },
+    playBossHit()  { this.playTone(100, 0.3, 'sawtooth', 0.4); },
+    playTrust()    { this.playTone(600, 0.1, 'sine', 0.2); 
+                     setTimeout(() => this.playTone(800, 0.15, 'sine', 0.2), 100); },
+    playSave()     { this.playTone(523, 0.1, 'sine', 0.2); 
+                     setTimeout(() => this.playTone(659, 0.1, 'sine', 0.2), 100);
+                     setTimeout(() => this.playTone(784, 0.15, 'sine', 0.2), 200); },
+    playDeath()    { this.playTone(300, 0.3, 'sawtooth', 0.3);
+                     setTimeout(() => this.playTone(200, 0.3, 'sawtooth', 0.3), 300);
+                     setTimeout(() => this.playTone(100, 0.5, 'sawtooth', 0.3), 600); },
+    playVictory()  { [523,659,784,1047].forEach((f,i) => 
+                     setTimeout(() => this.playTone(f, 0.2, 'sine', 0.3), i*150)); },
+
+    // Música procedural simples (loop)
+    musicInterval: null,
+    currentTrack: '',
+
+    playMusic(track) {
+        this.stopMusic();
+        this.currentTrack = track;
+
+        const patterns = {
+            'menu': { notes: [262,330,392,330], tempo: 400, type: 'sine', vol: 0.1 },
+            'phase1': { notes: [330,392,440,392,330,262], tempo: 300, type: 'sine', vol: 0.08 },
+            'phase2': { notes: [262,294,330,262,220,196], tempo: 350, type: 'triangle', vol: 0.08 },
+            'phase3': { notes: [220,262,196,220,175,196], tempo: 500, type: 'sine', vol: 0.06 },
+            'phaseFinal': { notes: [330,392,494,392,330,392,494,587], tempo: 250, type: 'triangle', vol: 0.08 },
+            'battle': { notes: [330,330,659,494,466,392,330,392], tempo: 150, type: 'square', vol: 0.1 },
+            'determination': { notes: [494,494,988,740,698,587,494,587], tempo: 200, type: 'square', vol: 0.12 },
+            'victory': { notes: [523,523,523,523,415,466,523,466,523], tempo: 200, type: 'sine', vol: 0.1 },
+            'gameover': { notes: [262,247,220,196], tempo: 600, type: 'triangle', vol: 0.08 }
+        };
+
+        const p = patterns[track];
+        if (!p) return;
+
+        let noteIndex = 0;
+        this.musicInterval = setInterval(() => {
+            this.playTone(p.notes[noteIndex % p.notes.length], p.tempo/1000 * 0.8, p.type, p.vol);
+            noteIndex++;
+        }, p.tempo);
+    },
+
+    stopMusic() {
+        if (this.musicInterval) {
+            clearInterval(this.musicInterval);
+            this.musicInterval = null;
+        }
+        this.currentTrack = '';
+    }
+};
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 4: SISTEMA DE DIÁLOGO
+// ══════════════════════════════════════════════════════
+
+const DialogueSystem = {
+    active: false,
+    lines: [],
+    currentLine: 0,
+    displayedText: '',
+    fullText: '',
+    charIndex: 0,
+    typingSpeed: 2,
+    speaker: '',
+    onComplete: null,
+    quickMessage: '',
+    quickTimer: 0,
+    isQuick: false,
+
+    startDialogue(speaker, lines, onComplete = null) {
+        this.active = true;
+        this.isQuick = false;
+        this.speaker = speaker;
+        this.lines = lines;
+        this.currentLine = 0;
+        this.onComplete = onComplete;
+        this.startLine(lines[0]);
+        gameState = 'dialogue';
+    },
+
+    startLine(text) {
+        this.fullText = text;
+        this.displayedText = '';
+        this.charIndex = 0;
+    },
+
+    showQuick(message) {
+        this.quickMessage = message;
+        this.quickTimer = 180; // 3 segundos
+        this.isQuick = true;
+    },
+
+    update() {
+        // Quick message
+        if (this.isQuick && this.quickTimer > 0) {
+            this.quickTimer--;
+            if (this.quickTimer <= 0) this.isQuick = false;
+        }
+
+        if (!this.active) return;
+
+        // Typing
+        if (this.charIndex < this.fullText.length) {
+            if (frameCount % this.typingSpeed === 0) {
+                this.displayedText += this.fullText[this.charIndex];
+                this.charIndex++;
+                if (this.fullText[this.charIndex-1] !== ' ')
+                    AudioSystem.playDialogue();
+            }
+        }
+    },
+
+    nextLine() {
+        if (this.charIndex < this.fullText.length) {
+            this.displayedText = this.fullText;
+            this.charIndex = this.fullText.length;
+            return;
+        }
+
+        this.currentLine++;
+        if (this.currentLine < this.lines.length) {
+            this.startLine(this.lines[this.currentLine]);
+        } else {
+            this.close();
+        }
+    },
+
+    close() {
+        this.active = false;
+        gameState = 'playing';
+        if (this.onComplete) this.onComplete();
+    },
+
+    draw(ctx) {
+        // Quick message
+        if (this.isQuick && this.quickTimer > 0) {
+            const alpha = Math.min(1, this.quickTimer / 30);
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = 'rgba(0,0,0,0.8)';
+            ctx.fillRect(100, 20, GAME_CONFIG.width - 200, 50);
+            ctx.strokeStyle = '#4af';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(100, 20, GAME_CONFIG.width - 200, 50);
+            ctx.fillStyle = '#fff';
+            ctx.font = '16px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText(this.quickMessage, GAME_CONFIG.width/2, 50);
+            ctx.restore();
+        }
+
+        if (!this.active) return;
+
+        // Dialogue box
+        const boxY = GAME_CONFIG.height - 140;
+        ctx.fillStyle = 'rgba(0,0,0,0.9)';
+        ctx.fillRect(50, boxY, GAME_CONFIG.width - 100, 120);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(50, boxY, GAME_CONFIG.width - 100, 120);
+
+        // Speaker name
+        if (this.speaker) {
+            ctx.fillStyle = '#4af';
+            ctx.font = 'bold 16px Courier New';
+            ctx.textAlign = 'left';
+            ctx.fillText(this.speaker, 70, boxY + 25);
+        }
+
+        // Text
+        ctx.fillStyle = '#fff';
+        ctx.font = '14px Courier New';
+        ctx.textAlign = 'left';
+
+        const words = this.displayedText.split(' ');
+        let line = '';
+        let y = boxY + 50;
+        const maxWidth = GAME_CONFIG.width - 160;
+
+        for (const word of words) {
+            const test = line + word + ' ';
+            if (ctx.measureText(test).width > maxWidth) {
+                ctx.fillText(line, 70, y);
+                line = word + ' ';
+                y += 20;
+            } else {
+                line = test;
+            }
+        }
+        ctx.fillText(line, 70, y);
+
+        // Continue indicator
+        if (this.charIndex >= this.fullText.length) {
+            ctx.fillStyle = '#4af';
+            ctx.font = '12px Courier New';
+            ctx.textAlign = 'right';
+            const blink = Math.sin(Date.now() / 300) > 0;
+            if (blink) ctx.fillText('▼ Continuar', GAME_CONFIG.width - 70, boxY + 105);
+        }
+    }
+};
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 5: SISTEMA DE CONQUISTAS
+// ══════════════════════════════════════════════════════
+
+const AchievementSystem = {
+    list: [
+        { id: 'firstSteps', title: 'Primeiros Passos', desc: 'Complete a fase 1', secret: false, xp: 50 },
+        { id: 'digitalDetox', title: 'Desintoxicação Digital', desc: 'Derrote o Vício Digital', secret: false, xp: 100 },
+        { id: 'truthSeeker', title: 'Buscador da Verdade', desc: 'Derrote a Desinformação', secret: false, xp: 100 },
+        { id: 'bridgeBuilder', title: 'Construtor de Pontes', desc: 'Quebre o Isolamento', secret: false, xp: 100 },
+        { id: 'finalConfront', title: 'Confronto Final', desc: 'Chegue ao boss final', secret: false, xp: 150 },
+        { id: 'survivor', title: 'No Limite', desc: 'Sobreviva com menos de 10% de vida', secret: false, xp: 75 },
+        { id: 'completionist', title: 'Entre Todas as Linhas', desc: 'Complete o jogo', secret: false, xp: 300 },
+        { id: 'listener', title: 'Ouvinte', desc: 'Leia todos os diálogos de Lucas', secret: false, xp: 100 },
+        { id: 'speedRunner', title: 'Velocista', desc: 'Complete em menos de 30 min', secret: false, xp: 200 },
+        { id: 'saver', title: 'Precavido', desc: 'Use todos os checkpoints', secret: false, xp: 50 },
+        { id: 'peacefulHeart', title: 'Coração em Paz', desc: 'Vença o boss final sem atacar', secret: true, xp: 400, hint: 'A força nem sempre é a resposta...' },
+        { id: 'trueEnding', title: 'Final Verdadeiro', desc: 'Convença Lucas com diálogo', secret: true, xp: 500, hint: 'Palavras valem mais que golpes...' },
+        { id: 'pacifist', title: 'Rota Pacifista', desc: 'Use Mercy em todos os bosses', secret: true, xp: 350, hint: 'Existe um caminho sem violência?' },
+        { id: 'philosopher', title: 'Filósofo Moderno', desc: 'Converse com Lucas em cada fase', secret: true, xp: 200, hint: 'Alguém importante tem algo a dizer...' },
+        { id: 'noHitBoss1', title: 'Fora do Vício', desc: 'Boss 1 sem tomar dano', secret: true, xp: 250, hint: 'Sair ileso?' },
+        { id: 'noHitBoss2', title: 'Imune à Mentira', desc: 'Boss 2 sem tomar dano', secret: true, xp: 250, hint: 'A verdade protege.' },
+        { id: 'noHitBoss3', title: 'Empatia Pura', desc: 'Boss 3 sem tomar dano', secret: true, xp: 250, hint: 'Aproximar sem se machucar.' },
+        { id: 'trustMaxed', title: 'Confiança Total', desc: 'Maximize a confiança', secret: true, xp: 300, hint: 'Paciência constrói confiança.' },
+        { id: 'oldMemories', title: 'Velhas Memórias', desc: 'Use Agir 10x no boss final', secret: true, xp: 200, hint: 'O passado tem poder.' },
+        { id: 'brokenScreen', title: 'Tela Quebrada', desc: 'Morra 10x e vença', secret: true, xp: 150, hint: 'Persistência é tudo.' }
+    ],
+
+    notification: null,
+    notifTimer: 0,
+
+    unlock(id) {
+        if (SaveSystem.data.achievements[id]) return;
+        SaveSystem.data.achievements[id] = true;
+        const a = this.list.find(x => x.id === id);
+        if (a) {
+            this.notification = a;
+            this.notifTimer = 240;
+            console.log('🏆 ' + a.title);
+            AudioSystem.playVictory();
+        }
+    },
+
+    isUnlocked(id) {
+        return SaveSystem.data.achievements[id] === true;
+    },
+
+    getUnlockedCount() {
+        return Object.keys(SaveSystem.data.achievements).filter(
+            k => SaveSystem.data.achievements[k]).length;
+    },
+
+    update() {
+        if (this.notifTimer > 0) this.notifTimer--;
+    },
+
+    draw(ctx) {
+        if (this.notifTimer <= 0 || !this.notification) return;
+
+        const alpha = Math.min(1, this.notifTimer / 30);
+        const a = this.notification;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+
+        // Background
+        ctx.fillStyle = a.secret ? 'rgba(255,200,0,0.9)' : 'rgba(50,200,50,0.9)';
+        ctx.fillRect(GAME_CONFIG.width - 320, 10, 310, 70);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(GAME_CONFIG.width - 320, 10, 310, 70);
+
+        // Icon
+        ctx.fillStyle = '#fff';
+        ctx.font = '24px Courier New';
+        ctx.fillText('🏆', GAME_CONFIG.width - 305, 52);
+
+        // Title
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 14px Courier New';
+        ctx.textAlign = 'left';
+        ctx.fillText(a.title, GAME_CONFIG.width - 275, 35);
+
+        // Desc
+        ctx.font = '11px Courier New';
+        ctx.fillText(a.desc, GAME_CONFIG.width - 275, 55);
+
+        // XP
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 12px Courier New';
+        ctx.fillText('+' + a.xp + ' XP', GAME_CONFIG.width - 20, 55);
+
+        ctx.restore();
+    }
+};
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 6: SISTEMA DE EFEITOS
+// ══════════════════════════════════════════════════════
+
+const EffectsSystem = {
+    particles: [],
+
+    spawnHit(x, y, color = '#ff3333') {
+        for (let i = 0; i < 8; i++) {
+            const angle = (Math.PI * 2 / 8) * i;
+            this.particles.push({
+                x, y,
+                vx: Math.cos(angle) * (2 + Math.random()*3),
+                vy: Math.sin(angle) * (2 + Math.random()*3),
+                size: 3 + Math.random()*3,
+                color,
+                life: 30,
+                maxLife: 30
+            });
+        }
+    },
+
+    spawnDeath(x, y, color = '#ff3333') {
+        for (let i = 0; i < 20; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1 + Math.random() * 5;
+            this.particles.push({
+                x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 2,
+                size: 2 + Math.random()*5,
+                color,
+                life: 40 + Math.random()*20,
+                maxLife: 60,
+                gravity: 0.1
+            });
+        }
+    },
+
+    spawnSaveEffect(x, y) {
+        for (let i = 0; i < 12; i++) {
+            const angle = (Math.PI * 2 / 12) * i;
+            this.particles.push({
+                x: x + Math.cos(angle) * 20,
+                y: y + Math.sin(angle) * 20,
+                vx: Math.cos(angle) * 1,
+                vy: Math.sin(angle) * 1 - 1,
+                size: 3,
+                color: '#ffcc33',
+                life: 40,
+                maxLife: 40
+            });
+        }
+        AudioSystem.playSave();
+    },
+
+    spawnAchievement(x, y) {
+        const colors = ['#ffcc33','#fff','#ff8833','#33ccff'];
+        for (let i = 0; i < 20; i++) {
+            this.particles.push({
+                x: x + (Math.random()-0.5)*40,
+                y,
+                vx: (Math.random()-0.5) * 4,
+                vy: -3 - Math.random()*5,
+                size: 2 + Math.random()*4,
+                color: colors[Math.floor(Math.random()*colors.length)],
+                life: 50,
+                maxLife: 50,
+                gravity: 0.15
+            });
+        }
+    },
+
+    update() {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            if (p.gravity) p.vy += p.gravity;
+            p.life--;
+            if (p.life <= 0) this.particles.splice(i, 1);
+        }
+    },
+
+    draw(ctx) {
+        for (const p of this.particles) {
+            ctx.globalAlpha = p.life / p.maxLife;
+            ctx.fillStyle = p.color;
+            ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+        }
+        ctx.globalAlpha = 1;
+    }
+};
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 7: PLAYER
+// ══════════════════════════════════════════════════════
+
+const player = {
+    x: 100, y: 300,
+    width: 24, height: 40,
+    vx: 0, vy: 0,
+    speed: 4,
+    jumpForce: -10,
+    health: 100,
+    maxHealth: 100,
+    isGrounded: false,
+    isDead: false,
+    facingRight: true,
+    invincible: false,
+    invincibleTimer: 0,
+    walkFrame: 0,
+
+    reset() {
+        this.x = 100;
+        this.y = 300;
+        this.vx = 0;
+        this.vy = 0;
+        this.health = this.maxHealth;
+        this.isDead = false;
+        this.invincible = false;
+    },
+
+    update(platforms) {
+        if (this.isDead) return;
+        if (gameState === 'battle' || gameState === 'cutscene') return;
+
+        // Movement
+        if (KEYS.left) {
+            this.vx = -this.speed;
+            this.facingRight = false;
+        } else if (KEYS.right) {
+            this.vx = this.speed;
+            this.facingRight = true;
+        } else {
+            this.vx = 0;
+        }
+
+        // Jump
+        if (KEYS.jump && this.isGrounded) {
+            this.vy = this.jumpForce;
+            this.isGrounded = false;
+            AudioSystem.playJump();
+        }
+
+        // Gravity
+        this.vy += GAME_CONFIG.gravity;
+
+        // Move
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Walk animation
+        if (Math.abs(this.vx) > 0.1) {
+            this.walkFrame += 0.15;
+        } else {
+            this.walkFrame = 0;
+        }
+
+        // Platform collision
+        this.isGrounded = false;
+        for (const p of platforms) {
+            if (this.x + this.width > p.x &&
+                this.x < p.x + p.width &&
+                this.y + this.height > p.y &&
+                this.y + this.height < p.y + p.height + 10 &&
+                this.vy >= 0)
+            {
+                this.y = p.y - this.height;
+                this.vy = 0;
+                this.isGrounded = true;
+            }
+        }
+
+        // World bounds
+        if (this.x < 0) this.x = 0;
+        if (this.x > GAME_CONFIG.width - this.width)
+            this.x = GAME_CONFIG.width - this.width;
+        if (this.y > GAME_CONFIG.height + 50) this.die();
+
+        // Invincibility
+        if (this.invincible) {
+            this.invincibleTimer--;
+            if (this.invincibleTimer <= 0) this.invincible = false;
+        }
+    },
+
+    takeDamage(amount) {
+        if (this.invincible || this.isDead) return;
+        this.health -= amount;
+        this.invincible = true;
+        this.invincibleTimer = 60;
+        AudioSystem.playHit();
+        EffectsSystem.spawnHit(this.x + this.width/2, this.y + this.height/2);
+
+        if (this.health / this.maxHealth <= 0.1)
+            AchievementSystem.unlock('survivor');
+
+        if (this.health <= 0) this.die();
+    },
+
+    heal(amount) {
+        this.health = Math.min(this.health + amount, this.maxHealth);
+    },
+
+    die() {
+        this.isDead = true;
+        this.health = 0;
+        AudioSystem.playDeath();
+        EffectsSystem.spawnDeath(this.x + this.width/2, this.y + this.height/2);
+        SaveSystem.data.totalDeaths++;
+
+        if (gameState === 'battle') {
+            BattleSystem.onPlayerDeath();
+        } else {
+            setTimeout(() => changeScene('death'), 1500);
+        }
+    },
+
+    draw(ctx) {
+        if (this.isDead) return;
+
+        // Blink when invincible
+        if (this.invincible && frameCount % 6 < 3) return;
+
+        ctx.save();
+        const flip = this.facingRight ? 1 : -1;
+        ctx.translate(this.x + this.width/2, this.y);
+        ctx.scale(flip, 1);
+
+        const legSwing = Math.sin(this.walkFrame * 8) * 4;
+        const armSwing = Math.sin(this.walkFrame * 8) * 3;
+        const breathe = Math.sin(Date.now()/500) * 0.5;
+
+        // Backpack
+        ctx.fillStyle = '#993333';
+        ctx.fillRect(-15, 5 + breathe, 10, 20);
+
+        // Legs
+        ctx.fillStyle = COLORS.pants;
+        ctx.fillRect(-7, 25, 6, 15 + legSwing);
+        ctx.fillRect(1, 25, 6, 15 - legSwing);
+
+        // Shoes
+        ctx.fillStyle = COLORS.shoe;
+        ctx.fillRect(-8, 38 + legSwing, 8, 4);
+        ctx.fillRect(0, 38 - legSwing, 8, 4);
+
+        // Body
+        ctx.fillStyle = COLORS.shirt;
+        ctx.fillRect(-9, 5 + breathe, 18, 22);
+
+        // Shirt stripe
+        ctx.fillStyle = '#2255aa';
+        ctx.fillRect(-9, 14 + breathe, 18, 3);
+
+        // Collar
+        ctx.fillStyle = '#ddd';
+        ctx.fillRect(-5, 5 + breathe, 10, 3);
+
+        // Arms
+        ctx.fillStyle = COLORS.shirt;
+        ctx.fillRect(-13, 8 + breathe + armSwing, 5, 16);
+        ctx.fillRect(8, 8 + breathe - armSwing, 5, 16);
+
+        // Hands
+        ctx.fillStyle = COLORS.skin;
+        ctx.fillRect(-13, 22 + breathe + armSwing, 5, 5);
+        ctx.fillRect(8, 22 + breathe - armSwing, 5, 5);
+
+        // Head
+        ctx.fillStyle = COLORS.skin;
+        ctx.fillRect(-9, -12, 18, 18);
+
+        // Hair
+        ctx.fillStyle = COLORS.hair;
+        ctx.fillRect(-10, -14, 20, 6);
+        ctx.fillRect(-10, -10, 6, 5); // fringe
+
+        // Eyes
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(-6, -6, 5, 5);
+        ctx.fillRect(1, -6, 5, 5);
+        ctx.fillStyle = '#3388ff';
+        ctx.fillRect(-5, -5, 3, 3);
+        ctx.fillRect(2, -5, 3, 3);
+
+        // Eyebrows
+        ctx.fillStyle = COLORS.hair;
+        ctx.fillRect(-6, -8, 5, 1);
+        ctx.fillRect(1, -8, 5, 1);
+
+        // Mouth
+        ctx.fillStyle = '#cc6666';
+        ctx.fillRect(-2, 1, 4, 1);
+
+        // Ears
+        ctx.fillStyle = COLORS.skin;
+        ctx.fillRect(-11, -6, 3, 5);
+        ctx.fillRect(8, -6, 3, 5);
+
+        ctx.restore();
+    }
+};
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 8: SOUL (Batalha)
+// ══════════════════════════════════════════════════════
+
+const soul = {
+    x: GAME_CONFIG.width/2,
+    y: GAME_CONFIG.height/2,
+    size: 12,
+    speed: 4,
+    active: false,
+    pulsePhase: 0,
+
+    // Battle box bounds
+    boxX: 280, boxY: 120,
+    boxW: 400, boxH: 250,
+
+    activate(x, y) {
+        this.x = x || this.boxX + this.boxW/2;
+        this.y = y || this.boxY + this.boxH/2;
+        this.active = true;
+    },
+
+    deactivate() {
+        this.active = false;
+    },
+
+    update() {
+        if (!this.active) return;
+
+        let dx = 0, dy = 0;
+        if (KEYS.left) dx = -this.speed;
+        if (KEYS.right) dx = this.speed;
+        if (KEYS.up) dy = -this.speed;
+        if (KEYS.down) dy = this.speed;
+
+        // Normalize diagonal
+        if (dx !== 0 && dy !== 0) {
+            dx *= 0.707;
+            dy *= 0.707;
+        }
+
+        this.x += dx;
+        this.y += dy;
+
+        // Clamp to battle box
+        this.x = Math.max(this.boxX + this.size, Math.min(this.boxX + this.boxW - this.size, this.x));
+        this.y = Math.max(this.boxY + this.size, Math.min(this.boxY + this.boxH - this.size, this.y));
+
+        this.pulsePhase += 0.1;
+    },
+
+    draw(ctx) {
+        if (!this.active) return;
+
+        const pulse = 1 + Math.sin(this.pulsePhase) * 0.15;
+        const s = this.size * pulse;
+
+        // Glow
+        ctx.fillStyle = 'rgba(255,50,80,0.2)';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, s * 1.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Heart shape (simple diamond)
+        ctx.fillStyle = '#ff1144';
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(Math.PI/4);
+        ctx.fillRect(-s/2, -s/2, s, s);
+        ctx.restore();
+
+        // Shine
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillRect(this.x - s/4, this.y - s/3, s/4, s/4);
+    },
+
+    checkCollision(bullet) {
+        const dx = this.x - bullet.x;
+        const dy = this.y - bullet.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        return dist < this.size + bullet.size;
+    }
+};
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 9: SISTEMA DE BATALHA
+// ══════════════════════════════════════════════════════
+
+const BattleSystem = {
+    active: false,
+    boss: null,
+    bullets: [],
+    isPlayerTurn: true,
+    enemyTurnTimer: 0,
+    enemyTurnDuration: 300,
+    selectedAction: 0,
+    actions: ['ATACAR', 'FALAR', 'AGIR', 'MERCY'],
+    tookDamageThisBoss: false,
+    attackedFinalBoss: false,
+    actCountFinal: 0,
+
+    buttons: [
+        { x: 170, y: 410, w: 120, h: 40, label: 'ATACAR', color: '#ff4444' },
+        { x: 320, y: 410, w: 120, h: 40, label: 'FALAR', color: '#44aaff' },
+        { x: 470, y: 410, w: 120, h: 40, label: 'AGIR', color: '#ffaa44' },
+        { x: 620, y: 410, w: 120, h: 40, label: 'MERCY', color: '#44ff88' }
+    ],
+
+    startBattle(boss) {
+        this.active = true;
+        this.boss = boss;
+        this.bullets = [];
+        this.isPlayerTurn = true;
+        this.tookDamageThisBoss = false;
+        this.attackedFinalBoss = false;
+        this.actCountFinal = 0;
+
+        gameState = 'battle';
+        SaveSystem.blockSave('Não é possível salvar durante a batalha!');
+
+        soul.activate();
+
+        if (boss.name === 'Lucas') {
+            AudioSystem.playMusic('determination');
+        } else {
+            AudioSystem.playMusic('battle');
+        }
+
+        DialogueSystem.showQuick('⚔️ ' + boss.name + ' apareceu!');
+    },
+
+    endBattle() {
+        this.active = false;
+        this.bullets = [];
+        soul.deactivate();
+        gameState = 'playing';
+        SaveSystem.unblockSave();
+
+        // Auto save after battle
+        setTimeout(() => {
+            if (!SaveSystem.saveBlocked) {
+                SaveSystem.save();
+                DialogueSystem.showQuick('💾 Progresso salvo!');
+            }
+        }, 1000);
+    },
+
+    onPlayerDeath() {
+        this.active = false;
+        this.bullets = [];
+        soul.deactivate();
+        SaveSystem.unblockSave();
+        SaveSystem.data.totalDeaths++;
+        setTimeout(() => changeScene('death'), 1500);
+    },
+
+    playerAttack() {
+        if (!this.isPlayerTurn) return;
+        this.boss.takeDamage(15);
+        if (this.boss.name === 'Lucas') {
+            this.attackedFinalBoss = true;
+        }
+        this.startEnemyTurn();
+    },
+
+    playerTalk() {
+        if (!this.isPlayerTurn) return;
+        this.boss.onTalk();
+        this.startEnemyTurn();
+    },
+
+    playerAct() {
+        if (!this.isPlayerTurn) return;
+        this.boss.onAct();
+        if (this.boss.name === 'Lucas') {
+            this.actCountFinal++;
+            if (this.actCountFinal >= 10)
+                AchievementSystem.unlock('oldMemories');
+        }
+        this.startEnemyTurn();
+    },
+
+    playerMercy() {
+        if (!this.isPlayerTurn) return;
+        this.boss.onMercy();
+        if (!this.active) return; // Boss may have ended battle
+        this.startEnemyTurn();
+    },
+
+    startEnemyTurn() {
+        this.isPlayerTurn = false;
+        this.enemyTurnTimer = this.enemyTurnDuration;
+        soul.activate();
+    },
+
+    update() {
+        if (!this.active) return;
+
+        soul.update();
+
+        // Enemy turn
+        if (!this.isPlayerTurn) {
+            this.enemyTurnTimer--;
+
+            // Boss attacks
+            this.boss.attack(this.bullets);
+
+            // Update bullets
+            for (let i = this.bullets.length - 1; i >= 0; i--) {
+                const b = this.bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+                b.life--;
+
+                // Check collision with soul
+                if (soul.checkCollision(b)) {
+                    player.takeDamage(10);
+                    this.tookDamageThisBoss = true;
+                    this.bullets.splice(i, 1);
+                    continue;
+                }
+
+                // Remove dead bullets
+                if (b.life <= 0 ||
+                    b.x < soul.boxX - 50 || b.x > soul.boxX + soul.boxW + 50 ||
+                    b.y < soul.boxY - 50 || b.y > soul.boxY + soul.boxH + 50) {
+                    this.bullets.splice(i, 1);
+                }
+            }
+
+            // End enemy turn
+            if (this.enemyTurnTimer <= 0) {
+                this.isPlayerTurn = true;
+                this.bullets = [];
+            }
+        }
+    },
+
+    handleClick(mx, my) {
+        if (!this.isPlayerTurn) return;
+
+        for (let i = 0; i < this.buttons.length; i++) {
+            const b = this.buttons[i];
+            if (mx >= b.x && mx <= b.x + b.w &&
+                my >= b.y && my <= b.y + b.h) {
+                AudioSystem.playSelect();
+                switch(i) {
+                    case 0: this.playerAttack(); break;
+                    case 1: this.playerTalk(); break;
+                    case 2: this.playerAct(); break;
+                    case 3: this.playerMercy(); break;
+                }
+            }
+        }
+    },
+
+    draw(ctx) {
+        if (!this.active) return;
+
+        // Battle box
+        ctx.fillStyle = 'rgba(0,0,0,0.95)';
+        ctx.fillRect(soul.boxX - 5, soul.boxY - 5, soul.boxW + 10, soul.boxH + 10);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(soul.boxX, soul.boxY, soul.boxW, soul.boxH);
+
+        // Boss info
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 18px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.boss.name, GAME_CONFIG.width/2, 30);
+
+        // Boss HP bar
+        const hpPercent = this.boss.health / this.boss.maxHealth;
+        ctx.fillStyle = '#333';
+        ctx.fillRect(330, 40, 300, 15);
+        ctx.fillStyle = hpPercent > 0.5 ? '#44ff44' :
+                        hpPercent > 0.25 ? '#ffaa44' : '#ff4444';
+        ctx.fillRect(330, 40, 300 * hpPercent, 15);
+        ctx.strokeStyle = '#fff';
+        ctx.strokeRect(330, 40, 300, 15);
+
+        // HP text
+        ctx.font = '12px Courier New';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(`HP: ${this.boss.health}/${this.boss.maxHealth}`,
+            GAME_CONFIG.width/2, 80);
+
+        // Trust bar (final boss only)
+        if (this.boss.trustPoints !== undefined) {
+            const trustPercent = this.boss.trustPoints / this.boss.trustRequired;
+            ctx.fillStyle = '#333';
+            ctx.fillRect(330, 90, 300, 10);
+            ctx.fillStyle = '#ffcc33';
+            ctx.fillRect(330, 90, 300 * trustPercent, 10);
+            ctx.strokeStyle = '#ffcc33';
+            ctx.strokeRect(330, 90, 300, 10);
+            ctx.font = '11px Courier New';
+            ctx.fillStyle = '#ffcc33';
+            ctx.fillText(`Confiança: ${Math.round(trustPercent*100)}%`,
+                GAME_CONFIG.width/2, 115);
+        }
+
+        // Boss visual
+        this.boss.draw(ctx);
+
+        // Bullets
+        for (const b of this.bullets) {
+            ctx.fillStyle = b.color || '#ff4444';
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.size || 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Soul
+        soul.draw(ctx);
+
+        // Action buttons (player turn only)
+        if (this.isPlayerTurn) {
+            for (const btn of this.buttons) {
+                // Hover detection
+                const hover = mouseX >= btn.x && mouseX <= btn.x + btn.w &&
+                              mouseY >= btn.y && mouseY <= btn.y + btn.h;
+
+                ctx.fillStyle = hover ? btn.color : 'rgba(0,0,0,0.8)';
+                ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
+                ctx.strokeStyle = btn.color;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
+
+                ctx.fillStyle = hover ? '#000' : btn.color;
+                ctx.font = 'bold 14px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillText(btn.label, btn.x + btn.w/2, btn.y + btn.h/2 + 5);
+            }
+
+            ctx.fillStyle = '#888';
+            ctx.font = '12px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText('Escolha sua ação', GAME_CONFIG.width/2, 475);
+        } else {
+            ctx.fillStyle = '#ff4444';
+            ctx.font = 'bold 14px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText('⚠️ DESVIE DOS ATAQUES! ⚠️', GAME_CONFIG.width/2, 440);
+        }
+
+        // Player HP
+        ctx.fillStyle = '#333';
+        ctx.fillRect(50, 490, 200, 15);
+        ctx.fillStyle = '#ff4444';
+        ctx.fillRect(50, 490, 200 * (player.health / player.maxHealth), 15);
+        ctx.strokeStyle = '#fff';
+        ctx.strokeRect(50, 490, 200, 15);
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px Courier New';
+        ctx.textAlign = 'left';
+        ctx.fillText(`❤️ ${player.health}/${player.maxHealth}`, 55, 525);
+    }
+};
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 10: BOSSES
+// ══════════════════════════════════════════════════════
+
+function createBoss1() {
+    return {
+        name: 'Vício Digital',
+        health: 80, maxHealth: 80,
+        talkCount: 0, mercyCount: 0,
+        canBeMercy: false,
+        attackTimer: 0,
+        bossIndex: 0,
+
+        talkLines: [
+            "Não consigo parar... só mais uma notificação...",
+            "Por que você me incomoda? Estou ocupado...",
+            "Talvez você esteja certo... mas é tão difícil parar.",
+            "Eu já perdi a noção do tempo...",
+            "Meu celular é meu mundo agora...",
+            "Eu esqueci como é conversar cara a cara..."
+        ],
+
+        deathStory: [
+            "Você destruiu o Vício Digital...",
+            "Mas ele não era um monstro.",
+            "Era alguém preso em notificações infinitas.",
+            "Esquecendo de comer, dormir, conversar.",
+            "A lição permanece: use a tecnologia com sabedoria."
+        ],
+
+        mercyStory: [
+            "Você deu uma chance para o Vício Digital...",
+            "Ele está mudando. Reduzindo o tempo de tela.",
+            "Conversando mais com as pessoas.",
+            "A tecnologia não é o inimigo. O excesso é."
+        ],
+
+        attack(bullets) {
+            this.attackTimer++;
+            if (this.attackTimer % 15 === 0) {
+                const angle = (Math.random() - 0.5) * Math.PI;
+                bullets.push({
+                    x: GAME_CONFIG.width/2 + (Math.random()-0.5)*100,
+                    y: soul.boxY + 10,
+                    vx: Math.sin(angle) * 3,
+                    vy: 2 + Math.random() * 2,
+                    size: 4,
+                    color: '#00ccff',
+                    life: 200
+                });
+            }
+        },
+
+        onTalk() {
+            this.talkCount++;
+            const idx = Math.min(this.talkCount-1, this.talkLines.length-1);
+            DialogueSystem.showQuick(this.talkLines[idx]);
+            if (this.talkCount >= 3) {
+                this.canBeMercy = true;
+                setTimeout(() => DialogueSystem.showQuick(
+                    "Talvez... talvez eu consiga mudar."), 2500);
+            }
+        },
+
+        onAct() {
+            DialogueSystem.showQuick("Eu tentei desligar uma vez... não consegui.");
+        },
+
+        onMercy() {
+            if (!this.canBeMercy) {
+                DialogueSystem.showQuick("Você não entende... eu preciso disso.");
+                return;
+            }
+            this.mercyCount++;
+            if (this.mercyCount >= 2) {
+                this.endBattle(true);
+            } else {
+                DialogueSystem.showQuick("Você está me dando uma chance...");
+            }
+        },
+
+        takeDamage(amount) {
+            this.health -= amount;
+            AudioSystem.playBossHit();
+            EffectsSystem.spawnHit(GAME_CONFIG.width/2, 200, '#00ccff');
+            if (this.health <= 0) this.endBattle(false);
+        },
+
+        endBattle(mercy) {
+            SaveSystem.setBossDefeated(0, mercy);
+            if (!BattleSystem.tookDamageThisBoss)
+                AchievementSystem.unlock('noHitBoss1');
+            AchievementSystem.unlock('digitalDetox');
+            AchievementSystem.unlock('firstSteps');
+            BattleSystem.endBattle();
+            showBossStory(this, mercy);
+        },
+
+        draw(ctx) {
+            const cx = GAME_CONFIG.width/2;
+            const cy = 190;
+            const pulse = Math.sin(Date.now()/300) * 2;
+
+            // Screen/face
+            ctx.fillStyle = '#001133';
+            ctx.fillRect(cx-25, cy-35+pulse, 50, 40);
+            ctx.fillStyle = '#00ccff';
+            ctx.strokeStyle = '#00ccff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(cx-25, cy-35+pulse, 50, 40);
+
+            // Notification icons
+            const blink = Math.sin(Date.now()/500) > 0;
+            if (blink) {
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(cx-15, cy-25+pulse, 6, 6);
+                ctx.fillStyle = '#ffcc00';
+                ctx.fillRect(cx-3, cy-25+pulse, 6, 6);
+                ctx.fillStyle = '#00ff00';
+                ctx.fillRect(cx+9, cy-25+pulse, 6, 6);
+            }
+
+            // Body
+            ctx.fillStyle = '#0a0a2e';
+            ctx.fillRect(cx-20, cy+5+pulse, 40, 35);
+
+            // Arms (cables)
+            ctx.fillStyle = '#00ccff';
+            ctx.fillRect(cx-30, cy+10+pulse, 8, 25);
+            ctx.fillRect(cx+22, cy+10+pulse, 8, 25);
+
+            // Legs
+            ctx.fillStyle = '#0a0a2e';
+            ctx.fillRect(cx-12, cy+40+pulse, 10, 20);
+            ctx.fillRect(cx+2, cy+40+pulse, 10, 20);
+        }
+    };
+}
+
+function createBoss2() {
+    return {
+        name: 'Desinformação',
+        health: 120, maxHealth: 120,
+        talkCount: 0, mercyCount: 0,
+        canBeMercy: false,
+        attackTimer: 0,
+        bossIndex: 1,
+
+        talkLines: [
+            "A verdade? Há tantas versões dela...",
+            "Se todos acreditam, então é real, não é?",
+            "Eu só compartilho o que as pessoas querem ouvir...",
+            "Mentiras são mais confortáveis que verdades...",
+            "Eu já magoei muita gente sem querer...",
+            "Talvez eu precise parar de espalhar boatos..."
+        ],
+
+        deathStory: [
+            "Você destruiu a Desinformação...",
+            "Mas era apenas alguém perdido em mentiras.",
+            "Sempre verifique as fontes.",
+            "Não acredite em tudo que aparece na tela."
+        ],
+
+        mercyStory: [
+            "A Desinformação entendeu o valor da verdade.",
+            "Começando a verificar fatos antes de compartilhar.",
+            "A internet é poderosa, mas precisa de responsabilidade."
+        ],
+
+        attack(bullets) {
+            this.attackTimer++;
+            // Spread pattern
+            if (this.attackTimer % 25 === 0) {
+                const count = 5;
+                const spread = Math.PI / 3;
+                for (let i = 0; i < count; i++) {
+                    const angle = -spread/2 + (spread/(count-1)) * i + Math.PI/2;
+                    bullets.push({
+                        x: GAME_CONFIG.width/2,
+                        y: soul.boxY + 20,
+                        vx: Math.cos(angle) * 2.5,
+                        vy: Math.sin(angle) * 2.5,
+                        size: 4,
+                        color: '#ff4444',
+                        life: 200
+                    });
+                }
+            }
+        },
+
+        onTalk() {
+            this.talkCount++;
+            const idx = Math.min(this.talkCount-1, this.talkLines.length-1);
+            DialogueSystem.showQuick(this.talkLines[idx]);
+            if (this.talkCount >= 4) {
+                this.canBeMercy = true;
+                setTimeout(() => DialogueSystem.showQuick(
+                    "Você está me fazendo pensar... isso é bom."), 2500);
+            }
+        },
+
+        onAct() {
+            DialogueSystem.showQuick("Verificar fontes... é uma boa ideia.");
+        },
+
+        onMercy() {
+            if (!this.canBeMercy) {
+                DialogueSystem.showQuick("As pessoas precisam dessas mentiras.");
+                return;
+            }
+            this.mercyCount++;
+            if (this.mercyCount >= 2) {
+                this.endBattle(true);
+            } else {
+                DialogueSystem.showQuick("Talvez eu possa verificar as fontes primeiro.");
+            }
+        },
+
+        takeDamage(amount) {
+            this.health -= amount;
+            AudioSystem.playBossHit();
+            EffectsSystem.spawnHit(GAME_CONFIG.width/2, 200, '#ff4444');
+            if (this.health <= 0) this.endBattle(false);
+        },
+
+        endBattle(mercy) {
+            SaveSystem.setBossDefeated(1, mercy);
+            if (!BattleSystem.tookDamageThisBoss)
+                AchievementSystem.unlock('noHitBoss2');
+            AchievementSystem.unlock('truthSeeker');
+            BattleSystem.endBattle();
+            showBossStory(this, mercy);
+        },
+
+        draw(ctx) {
+            const cx = GAME_CONFIG.width/2;
+            const cy = 190;
+            const distort = Math.sin(Date.now()/200) * 2;
+
+            // Multiple masks
+            ctx.fillStyle = '#888';
+            ctx.fillRect(cx-40, cy-20+distort, 15, 15);
+            ctx.fillRect(cx+25, cy-15-distort, 12, 12);
+
+            // Main face (mask)
+            ctx.fillStyle = '#ffaa33';
+            ctx.fillRect(cx-20, cy-30, 40, 30);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(cx-12, cy-24, 6, 6);
+            ctx.fillRect(cx+6, cy-24, 6, 6);
+            ctx.fillRect(cx-8, cy-12, 16, 3);
+
+            // Body (fragmented)
+            ctx.fillStyle = '#cc3333';
+            ctx.fillRect(cx-18, cy+2, 36, 35);
+            ctx.fillStyle = '#661111';
+            ctx.fillRect(cx-10+distort, cy+10, 15, 15);
+
+            // Arms
+            ctx.fillStyle = '#661111';
+            ctx.fillRect(cx-28, cy+5+distort, 10, 28);
+            ctx.fillRect(cx+18, cy+5-distort, 10, 28);
+
+            // Legs
+            ctx.fillStyle = '#cc3333';
+            ctx.fillRect(cx-12, cy+37, 10, 20);
+            ctx.fillRect(cx+2, cy+37, 10, 20);
+        }
+    };
+}
+
+function createBoss3() {
+    return {
+        name: 'Isolamento Social',
+        health: 150, maxHealth: 150,
+        talkCount: 0, mercyCount: 0,
+        canBeMercy: false,
+        attackTimer: 0,
+        phase: 1,
+        spiralAngle: 0,
+        bossIndex: 2,
+        transformed: false,
+
+        talkLines: [
+            "Me deixa em paz... como todo mundo faz.",
+            "Por que você se importa agora?",
+            "Eu só não queria ser esquecido.",
+            "Talvez... talvez eu possa tentar de novo.",
+            "Você está certo... eu preciso de pessoas.",
+            "Eu sinto falta de conversar com alguém..."
+        ],
+
+        deathStory: [
+            "Você destruiu o Isolamento Social...",
+            "Mas era alguém que construiu muros ao redor de si.",
+            "Não deixe que telas substituam abraços.",
+            "Mantenha contato com as pessoas reais."
+        ],
+
+        mercyStory: [
+            "Você quebrou o isolamento... e abriu portas.",
+            "Ele está saindo de casa, conversando com amigos.",
+            "A tecnologia deve conectar, não isolar."
+        ],
+
+        attack(bullets) {
+            this.attackTimer++;
+
+            if (this.phase === 1) {
+                // Circle pattern
+                if (this.attackTimer % 30 === 0) {
+                    const count = 8;
+                    for (let i = 0; i < count; i++) {
+                        const angle = (Math.PI * 2 / count) * i;
+                        bullets.push({
+                            x: GAME_CONFIG.width/2,
+                            y: 200,
+                            vx: Math.cos(angle) * 2,
+                            vy: Math.sin(angle) * 2,
+                            size: 4,
+                            color: '#8833ff',
+                            life: 200
+                        });
+                    }
+                }
+            } else {
+                // Spiral pattern
+                if (this.attackTimer % 8 === 0) {
+                    this.spiralAngle += 15;
+                    const rad = this.spiralAngle * Math.PI / 180;
+                    bullets.push({
+                        x: GAME_CONFIG.width/2,
+                        y: 200,
+                        vx: Math.cos(rad) * 2.5,
+                        vy: Math.sin(rad) * 2.5,
+                        size: 4,
+                        color: '#ff33aa',
+                        life: 200
+                    });
+                }
+            }
+        },
+
+        takeDamage(amount) {
+            this.health -= amount;
+            AudioSystem.playBossHit();
+            EffectsSystem.spawnHit(GAME_CONFIG.width/2, 200, '#8833ff');
+
+            // TRANSFORMATION at 50%
+            if (this.health <= this.maxHealth / 2 && this.phase === 1) {
+                this.phase = 2;
+                this.transformed = true;
+                DialogueSystem.showQuick("Você não entende como é estar sozinho!");
+                setTimeout(() => DialogueSystem.showQuick(
+                    "FASE 2 - O Isolamento se aprofunda!"), 2500);
+                EffectsSystem.spawnDeath(GAME_CONFIG.width/2, 200, '#8833ff');
+            }
+
+            if (this.health <= 0) this.endBattle(false);
+        },
+
+        onTalk() {
+            this.talkCount++;
+            const idx = Math.min(this.talkCount-1, this.talkLines.length-1);
+            DialogueSystem.showQuick(this.talkLines[idx]);
+            if (this.talkCount >= 4) {
+                this.canBeMercy = true;
+                setTimeout(() => DialogueSystem.showQuick(
+                    "Ok... eu aceito sua ajuda."), 2500);
+            }
+        },
+
+        onAct() {
+            const memories = [
+                "Lembrar de tempos melhores...",
+                "Quando havia pessoas ao seu redor...",
+                "Antes dos muros digitais."
+            ];
+            DialogueSystem.showQuick(memories[Math.floor(Math.random()*memories.length)]);
+        },
+
+        onMercy() {
+            if (!this.canBeMercy) {
+                DialogueSystem.showQuick("Você precisa me entender antes de me perdoar.");
+                return;
+            }
+            this.endBattle(true);
+        },
+
+        endBattle(mercy) {
+            SaveSystem.setBossDefeated(2, mercy);
+            if (!BattleSystem.tookDamageThisBoss)
+                AchievementSystem.unlock('noHitBoss3');
+            AchievementSystem.unlock('bridgeBuilder');
+            BattleSystem.endBattle();
+            showBossStory(this, mercy);
+        },
+
+        draw(ctx) {
+            const cx = GAME_CONFIG.width/2;
+            const cy = 190;
+            const float = Math.sin(Date.now()/800) * 3;
+            const color = this.phase === 2 ? '#ff33aa' : '#8833ff';
+
+            // Bubble
+            ctx.strokeStyle = this.phase === 2 
+                ? 'rgba(255,50,170,0.5)' : 'rgba(136,51,255,0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy + float, 45, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Body
+            ctx.fillStyle = this.phase === 2 ? '#330055' : '#332255';
+            ctx.fillRect(cx-15, cy-5+float, 30, 30);
+
+            // Head
+            ctx.fillStyle = this.phase === 2 ? '#9966cc' : '#667799';
+            ctx.fillRect(cx-12, cy-20+float, 24, 20);
+
+            // Sad eyes
+            ctx.fillStyle = '#000';
+            ctx.fillRect(cx-8, cy-14+float, 5, 3);
+            ctx.fillRect(cx+3, cy-14+float, 5, 3);
+
+            // Tear
+            ctx.fillStyle = '#66aaff';
+            ctx.fillRect(cx-7, cy-9+float, 2, 5);
+
+            // Arms hugging self
+            ctx.fillStyle = this.phase === 2 ? '#330055' : '#332255';
+            ctx.fillRect(cx-22, cy+float, 8, 22);
+            ctx.fillRect(cx+14, cy+float, 8, 22);
+
+            // Legs
+            ctx.fillRect(cx-10, cy+25+float, 8, 15);
+            ctx.fillRect(cx+2, cy+25+float, 8, 15);
+
+            // Phase 2 glow
+            if (this.phase === 2) {
+                ctx.fillStyle = 'rgba(255,50,170,0.1)';
+                ctx.beginPath();
+                ctx.arc(cx, cy + float, 55, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    };
+}
+
+function createFinalBoss() {
+    return {
+        name: 'Lucas',
+        health: 200, maxHealth: 200,
+        trustPoints: 0, trustRequired: 5,
+        talkCount: 0, mercyCount: 0,
+        canBeSaved: false,
+        attackTimer: 0,
+        bossIndex: 3,
+
+        talkLines: [
+            "Você não entende o que estou construindo...",
+            "A tecnologia vai resolver tudo!",
+            "Eu só quero um mundo melhor...",
+            "Mas... e as pessoas que ficaram pra trás?",
+            "Eu... esqueci delas, não esqueci?",
+            "Talvez eu precise repensar tudo isso..."
+        ],
+
+        deathStory: [
+            "Você destruiu Lucas...",
+            "Mas ele era apenas alguém perdido no caminho.",
+            "As pessoas importam mais que algoritmos.",
+            "As conexões humanas valem mais que curtidas.",
+            "Talvez houvesse outro caminho..."
+        ],
+
+        mercyStory: [
+            "Você salvou Lucas... e salvou a amizade.",
+            "Ele está mudando. Redescobrindo o valor das conversas.",
+            "Dos abraços. Das risadas compartilhadas.",
+            "A tecnologia é uma ferramenta, não uma substituta.",
+            "A escolha... sempre foi sua."
+        ],
+
+        attack(bullets) {
+            this.attackTimer++;
+            let rate, speed;
+
+            if (this.trustPoints < 2) {
+                rate = 12; speed = 3.5;
+            } else if (this.trustPoints < 4) {
+                rate = 20; speed = 2.5;
+            } else {
+                rate = 35; speed = 1.5;
+            }
+
+            if (this.attackTimer % rate === 0) {
+                const dx = soul.x - GAME_CONFIG.width/2;
+                const dy = soul.y - 200;
+                const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+                bullets.push({
+                    x: GAME_CONFIG.width/2,
+                    y: 200,
+                    vx: (dx/dist) * speed,
+                    vy: (dy/dist) * speed,
+                    size: 5,
+                    color: '#00ff66',
+                    life: 200
+                });
+            }
+        },
+
+        onTalk() {
+            this.talkCount++;
+            this.trustPoints = Math.min(this.trustPoints + 1, this.trustRequired);
+            const idx = Math.min(this.talkCount-1, this.talkLines.length-1);
+            DialogueSystem.showQuick(this.talkLines[idx]);
+            AudioSystem.playTrust();
+
+            if (this.trustPoints >= this.trustRequired) {
+                this.canBeSaved = true;
+                AchievementSystem.unlock('trustMaxed');
+                setTimeout(() => DialogueSystem.showQuick(
+                    "Eu... preciso pensar no que você disse."), 2500);
+            }
+        },
+
+        onAct() {
+            const memories = [
+                "Você lembra quando a gente jogava bola sem celular?",
+                "Nós costumávamos conversar por horas...",
+                "Você disse que nunca me abandonaria.",
+                "Lembra do dia que ficamos olhando as estrelas?",
+                "Aquele verão sem internet... foi o melhor."
+            ];
+            DialogueSystem.showQuick(memories[Math.floor(Math.random()*memories.length)]);
+            this.trustPoints = Math.min(this.trustPoints + 1, this.trustRequired);
+            AudioSystem.playTrust();
+        },
+
+        onMercy() {
+            if (!this.canBeSaved) {
+                const lines = [
+                    "Não me atrapalhe!",
+                    "Você está me impedindo!",
+                    "Por que insiste?!"
+                ];
+                DialogueSystem.showQuick(lines[Math.min(this.mercyCount, lines.length-1)]);
+                this.mercyCount++;
+                return;
+            }
+            this.endBattle(true);
+        },
+
+        takeDamage(amount) {
+            this.health -= amount;
+            BattleSystem.attackedFinalBoss = true;
+            AudioSystem.playBossHit();
+            EffectsSystem.spawnHit(GAME_CONFIG.width/2, 200, '#00ff66');
+            if (this.health <= 0) this.endBattle(false);
+        },
+
+        endBattle(mercy) {
+            SaveSystem.setBossDefeated(3, mercy);
+
+            if (mercy) {
+                AchievementSystem.unlock('trueEnding');
+                if (!BattleSystem.attackedFinalBoss)
+                    AchievementSystem.unlock('peacefulHeart');
+                // Check pacifist
+                if (SaveSystem.data.boss1Mercy && SaveSystem.data.boss2Mercy &&
+                    SaveSystem.data.boss3Mercy)
+                    AchievementSystem.unlock('pacifist');
+            }
+
+            AchievementSystem.unlock('completionist');
+            AchievementSystem.unlock('finalConfront');
+
+            if (SaveSystem.data.totalDeaths >= 10)
+                AchievementSystem.unlock('brokenScreen');
+
+            BattleSystem.endBattle();
+            showBossStory(this, mercy);
+        },
+
+        draw(ctx) {
+            const cx = GAME_CONFIG.width/2;
+            const cy = 190;
+            const glow = Math.sin(Date.now()/400) * 0.1;
+
+            // Aura
+            ctx.fillStyle = `rgba(0,255,100,${0.05 + glow})`;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 50, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Legs
+            ctx.fillStyle = '#0a0a22';
+            ctx.fillRect(cx-10, cy+25, 8, 20);
+            ctx.fillRect(cx+2, cy+25, 8, 20);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(cx-11, cy+43, 10, 4);
+            ctx.fillRect(cx+1, cy+43, 10, 4);
+
+            // Body (tech coat)
+            ctx.fillStyle = '#111';
+            ctx.fillRect(cx-18, cy-5, 36, 32);
+            ctx.fillStyle = '#00ff66';
+            ctx.fillRect(cx-8, cy+5, 16, 3);
+            ctx.fillRect(cx-2, cy-2, 4, 15);
+
+            // Coat sides
+            ctx.fillStyle = '#0a0a15';
+            ctx.fillRect(cx-22, cy-3, 6, 30);
+            ctx.fillRect(cx+16, cy-3, 6, 30);
+
+            // Arms
+            ctx.fillStyle = '#111';
+            ctx.fillRect(cx-26, cy, 6, 24);
+            ctx.fillRect(cx+20, cy, 6, 24);
+            ctx.fillStyle = '#ffcc99';
+            ctx.fillRect(cx-26, cy+22, 6, 6);
+            ctx.fillRect(cx+20, cy+22, 6, 6);
+
+            // Head
+            ctx.fillStyle = '#ffcc99';
+            ctx.fillRect(cx-12, cy-25, 24, 22);
+
+            // Hair
+            ctx.fillStyle = '#000';
+            ctx.fillRect(cx-13, cy-28, 26, 7);
+            ctx.fillRect(cx-13, cy-23, 5, 10);
+            ctx.fillRect(cx+8, cy-23, 5, 10);
+
+            // Visor
+            ctx.fillStyle = 'rgba(0,255,100,0.4)';
+            ctx.fillRect(cx-14, cy-18, 28, 8);
+            ctx.strokeStyle = '#00ff66';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(cx-14, cy-18, 28, 8);
+
+            // Eyes behind visor
+            ctx.fillStyle = '#00ff66';
+            ctx.fillRect(cx-8, cy-16, 4, 4);
+            ctx.fillRect(cx+4, cy-16, 4, 4);
+        }
+    };
+}
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 11: BOSS STORY
+// ══════════════════════════════════════════════════════
+
+function showBossStory(boss, mercy) {
+    const story = mercy ? boss.mercyStory : boss.deathStory;
+    const title = mercy
+        ? `A Redenção de ${boss.name}`
+        : `O Fim de ${boss.name}`;
+
+    gameState = 'story';
+
+    currentStory = {
+        title,
+        lines: story,
+        currentLine: 0,
+        timer: 0,
+        displayedLines: [],
+        boss,
+        mercy,
+        complete: false
+    };
+}
+
+let currentStory = null;
+
+function updateStory() {
+    if (!currentStory || currentStory.complete) return;
+
+    currentStory.timer++;
+
+    if (currentStory.timer % 120 === 0 &&
+        currentStory.currentLine < currentStory.lines.length) {
+        currentStory.displayedLines.push(
+            currentStory.lines[currentStory.currentLine]);
+        currentStory.currentLine++;
+    }
+
+    if (currentStory.currentLine >= currentStory.lines.length &&
+        currentStory.timer > currentStory.lines.length * 120 + 120) {
+        currentStory.complete = true;
+    }
+}
+
+function drawStory(ctx) {
+    if (!currentStory) return;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.95)';
+    ctx.fillRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
+
+    // Title
+    ctx.fillStyle = currentStory.mercy ? '#44ff88' : '#ff4444';
+    ctx.font = 'bold 24px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(currentStory.title, GAME_CONFIG.width/2, 60);
+
+    // Boss drawing
+    currentStory.boss.draw(ctx);
+
+    // Story lines
+    ctx.fillStyle = '#fff';
+    ctx.font = '16px Courier New';
+    currentStory.displayedLines.forEach((line, i) => {
+        ctx.fillText(line, GAME_CONFIG.width/2, 300 + i * 30);
+    });
+
+    // Continue prompt
+    if (currentStory.complete) {
+        const blink = Math.sin(Date.now()/400) > 0;
+        if (blink) {
+            ctx.fillStyle = '#4af';
+            ctx.font = '14px Courier New';
+            ctx.fillText('Clique para continuar →',
+                GAME_CONFIG.width/2, GAME_CONFIG.height - 40);
+        }
+    }
+}
+
+function clickStory() {
+    if (currentStory && currentStory.complete) {
+        currentStory = null;
+        gameState = 'playing';
+
+        // Transition to next phase
+        const phase = SaveSystem.data.currentPhase;
+        if (phase >= 4) {
+            changeScene('credits');
+        } else {
+            showCutscene(phase);
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 12: CUTSCENES
+// ══════════════════════════════════════════════════════
+
+let cutsceneData = null;
+
+const CUTSCENES = {
+    intro: [
+        { speaker: 'Narrador', text: 'Em um mundo onde telas substituíram rostos...' },
+        { speaker: 'Narrador', text: '...onde likes valem mais que abraços...' },
+        { speaker: 'Narrador', text: 'Um estudante percebeu que algo estava errado.' },
+        { speaker: 'Você', text: 'Lucas era meu melhor amigo desde o primário.' },
+        { speaker: 'Você', text: 'A gente fazia tudo junto.' },
+        { speaker: 'Lucas', text: 'Ei! Olha esse app novo que eu achei!' },
+        { speaker: 'Você', text: 'No começo era divertido...' },
+        { speaker: 'Você', text: 'Mas aos poucos... Lucas foi mudando.' },
+        { speaker: 'Lucas', text: 'Não me incomoda. Estou ocupado.' },
+        { speaker: 'Você', text: 'Naquele dia, eu decidi trazê-lo de volta.' },
+        { speaker: '', text: 'CAPÍTULO 1: A Tela Que Consome' }
+    ],
+
+    phase1to2: [
+        { speaker: 'Você', text: 'O Vício Digital encontrou paz...' },
+        { speaker: 'Você', text: 'Mas há mais pela frente.' },
+        { speaker: 'Lucas', text: 'Você acha que resolveu alguma coisa?' },
+        { speaker: 'Lucas', text: 'O vício é apenas o começo. As mentiras vêm depois.' },
+        { speaker: 'Você', text: 'Lucas... por que você está fazendo isso?' },
+        { speaker: '', text: 'CAPÍTULO 2: A Máscara da Mentira' }
+    ],
+
+    phase2to3: [
+        { speaker: 'Você', text: 'A Desinformação entendeu o valor da verdade.' },
+        { speaker: 'Você', text: 'Esse lugar está ficando mais frio...' },
+        { speaker: 'Lucas', text: 'Sabe o que é pior que mentiras?' },
+        { speaker: 'Lucas', text: 'O silêncio. O vazio. A solidão.' },
+        { speaker: 'Você', text: 'Não é tarde. Nunca é.' },
+        { speaker: '', text: 'CAPÍTULO 3: As Paredes do Vazio' }
+    ],
+
+    phase3toFinal: [
+        { speaker: '', text: 'Três manifestações. Três lições.' },
+        { speaker: '', text: 'Vício. Desinformação. Isolamento.' },
+        { speaker: 'Você', text: 'Aqui é... o laboratório dele?' },
+        { speaker: 'Lucas', text: 'Você chegou até aqui.' },
+        { speaker: 'Você', text: 'Lucas... eu vi tudo.' },
+        { speaker: 'Lucas', text: 'Então me prove que humanidade ainda vale alguma coisa.' },
+        { speaker: '', text: 'CAPÍTULO FINAL: Lucas, Meu Melhor Amigo' }
+    ],
+
+    goodEnding: [
+        { speaker: 'Lucas', text: 'Você estava certo esse tempo todo.' },
+        { speaker: 'Lucas', text: 'Eu me perdi. Achei que tecnologia era tudo.' },
+        { speaker: 'Lucas', text: 'Sem as pessoas... sem você...' },
+        { speaker: 'Lucas', text: '...não tem sentido nenhum.' },
+        { speaker: 'Você', text: 'Eu nunca desisti de você, Lucas.' },
+        { speaker: 'Lucas', text: 'Obrigado... meu amigo.' },
+        { speaker: '', text: 'A tecnologia é uma ferramenta poderosa.' },
+        { speaker: '', text: 'A escolha... sempre foi sua.' }
+    ],
+
+    badEnding: [
+        { speaker: '', text: 'Você escolheu a força.' },
+        { speaker: '', text: 'Lucas caiu... mas a tecnologia continuou.' },
+        { speaker: '', text: 'Sem ele, sem conexão, sem amizade.' },
+        { speaker: '', text: 'O mundo digital avançou...' },
+        { speaker: '', text: '...mas a humanidade ficou para trás.' },
+        { speaker: '', text: 'Tente novamente?' }
+    ]
+};
+
+function showCutscene(phaseIndex) {
+    const keys = ['intro', 'phase1to2', 'phase2to3', 'phase3toFinal'];
+    const key = keys[phaseIndex] || 'intro';
+    cutsceneData = {
+        lines: CUTSCENES[key],
+        currentLine: 0,
+        phase: phaseIndex
+    };
+    gameState = 'cutscene';
+    DialogueSystem.startDialogue(
+        cutsceneData.lines[0].speaker,
+        cutsceneData.lines.map(l => (l.speaker ? l.speaker + ': ' : '') + l.text),
+        () => {
+            cutsceneData = null;
+            // Load next phase
+            const phaseScenes = ['phase1', 'phase2', 'phase3', 'phaseFinal'];
+            changeScene(phaseScenes[phaseIndex] || 'phase1');
+        }
+    );
+}
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 13: SCENES
+// ══════════════════════════════════════════════════════
+
+const scenes = {};
+
+// --- MENU ---
+scenes.menu = {
+    buttons: [
+        { x: 380, y: 250, w: 200, h: 45, text: 'NOVO JOGO', action: 'new' },
+        { x: 380, y: 310, w: 200, h: 45, text: 'CONTINUAR', action: 'continue' },
+        { x: 380, y: 370, w: 200, h: 45, text: 'CONQUISTAS', action: 'achievements' }
+    ],
+    starTimer: 0,
+    stars: [],
+
+    init() {
+        AudioSystem.playMusic('menu');
+        this.stars = [];
+        for (let i = 0; i < 50; i++) {
+            this.stars.push({
+                x: Math.random() * GAME_CONFIG.width,
+                y: Math.random() * GAME_CONFIG.height,
+                size: Math.random() * 2 + 0.5,
+                speed: Math.random() * 0.3 + 0.1
+            });
+        }
+    },
+
+    update() {
+        for (const s of this.stars) {
+            s.y += s.speed;
+            if (s.y > GAME_CONFIG.height) {
+                s.y = 0;
+                s.x = Math.random() * GAME_CONFIG.width;
+            }
+        }
+    },
+
+    draw(ctx) {
+        // Background
+        ctx.fillStyle = '#0a0a2e';
+        ctx.fillRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
+
+        // Stars
+        for (const s of this.stars) {
+            ctx.fillStyle = `rgba(200,220,255,${0.3 + Math.sin(Date.now()/500 + s.x)*0.3})`;
+            ctx.fillRect(s.x, s.y, s.size, s.size);
+        }
+
+        // Title
+        ctx.fillStyle = '#4af';
+        ctx.font = 'bold 36px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('ENTRE LINHAS', GAME_CONFIG.width/2, 120);
+        ctx.fillText('E TELAS', GAME_CONFIG.width/2, 165);
+
+        // Subtitle
+        ctx.fillStyle = '#888';
+        ctx.font = '14px Courier New';
+        ctx.fillText('Uma história sobre conexões perdidas',
+            GAME_CONFIG.width/2, 200);
+
+        // Buttons
+        for (const btn of this.buttons) {
+            const hover = mouseX >= btn.x && mouseX <= btn.x + btn.w &&
+                          mouseY >= btn.y && mouseY <= btn.y + btn.h;
+
+            if (btn.action === 'continue' && !SaveSystem.hasSave()) {
+                ctx.fillStyle = 'rgba(50,50,50,0.5)';
+                ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
+                ctx.fillStyle = '#555';
+                ctx.font = '16px Courier New';
+                ctx.fillText(btn.text, btn.x + btn.w/2, btn.y + btn.h/2 + 6);
+                continue;
+            }
+
+            ctx.fillStyle = hover ? '#4af' : 'rgba(0,0,0,0.7)';
+            ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
+            ctx.strokeStyle = '#4af';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
+            ctx.fillStyle = hover ? '#000' : '#4af';
+            ctx.font = 'bold 16px Courier New';
+            ctx.fillText(btn.text, btn.x + btn.w/2, btn.y + btn.h/2 + 6);
+        }
+
+        // Version
+        ctx.fillStyle = '#444';
+        ctx.font = '11px Courier New';
+        ctx.fillText('v' + GAME_CONFIG.version, GAME_CONFIG.width/2, 520);
+    },
+
+    click(mx, my) {
+        for (const btn of this.buttons) {
+            if (mx >= btn.x && mx <= btn.x + btn.w &&
+                my >= btn.y && my <= btn.y + btn.h) {
+                AudioSystem.playSelect();
+                switch(btn.action) {
+                    case 'new':
+                        SaveSystem.newGame();
+                        showCutscene(0);
+                        break;
+                    case 'continue':
+                        if (SaveSystem.hasSave()) {
+                            SaveSystem.load();
+                            const p = SaveSystem.data.currentPhase;
+                            const phaseScenes = ['phase1','phase2','phase3','phaseFinal'];
+                            changeScene(phaseScenes[Math.min(p, 3)] || 'phase1');
+                        }
+                        break;
+                    case 'achievements':
+                        changeScene('achievementsScreen');
+                        break;
+                }
+            }
+        }
+    }
+};
+
+// --- ACHIEVEMENTS SCREEN ---
+scenes.achievementsScreen = {
+    scrollY: 0,
+
+    init() { this.scrollY = 0; },
+
+    update() {},
+
+    draw(ctx) {
+        ctx.fillStyle = '#0a0a2e';
+        ctx.fillRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
+
+        ctx.fillStyle = '#ffcc33';
+        ctx.font = 'bold 24px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('🏆 CONQUISTAS', GAME_CONFIG.width/2, 40);
+
+        const unlocked = AchievementSystem.getUnlockedCount();
+        const total = AchievementSystem.list.length;
+        ctx.fillStyle = '#888';
+        ctx.font = '14px Courier New';
+        ctx.fillText(`${unlocked}/${total} desbloqueadas`, GAME_CONFIG.width/2, 65);
+
+        let y = 90 - this.scrollY;
+        for (const a of AchievementSystem.list) {
+            if (y > 50 && y < GAME_CONFIG.height - 30) {
+                const isUnlocked = AchievementSystem.isUnlocked(a.id);
+
+                ctx.fillStyle = isUnlocked
+                    ? (a.secret ? 'rgba(255,200,0,0.3)' : 'rgba(50,200,50,0.3)')
+                    : 'rgba(50,50,50,0.5)';
+                ctx.fillRect(100, y, GAME_CONFIG.width - 200, 40);
+                ctx.strokeStyle = isUnlocked ? (a.secret ? '#ffcc33' : '#44ff88') : '#333';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(100, y, GAME_CONFIG.width - 200, 40);
+
+                ctx.textAlign = 'left';
+                ctx.fillStyle = isUnlocked ? '#fff' : '#666';
+                ctx.font = 'bold 13px Courier New';
+                ctx.fillText(
+                    isUnlocked ? a.title : (a.secret ? '???' : a.title),
+                    120, y + 17);
+
+                ctx.font = '11px Courier New';
+                ctx.fillStyle = isUnlocked ? '#aaa' : '#555';
+                ctx.fillText(
+                    isUnlocked ? a.desc : (a.secret ? (a.hint || '???') : a.desc),
+                    120, y + 33);
+
+                if (isUnlocked) {
+                    ctx.textAlign = 'right';
+                    ctx.fillStyle = '#ffcc33';
+                    ctx.font = 'bold 12px Courier New';
+                    ctx.fillText('+' + a.xp + 'XP',
+                        GAME_CONFIG.width - 120, y + 25);
+                }
+            }
+            y += 48;
+        }
+
+        // Back button
+        ctx.fillStyle = '#4af';
+        ctx.font = '14px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('← Clique para voltar', GAME_CONFIG.width/2, GAME_CONFIG.height - 15);
+    },
+
+    click() {
+        changeScene('menu');
+    }
+};
+
+// --- PHASE TEMPLATE ---
+function createPhaseScene(phaseIndex, bgColor, platformColor, bossCreator, musicTrack) {
+    return {
+        platforms: [],
+        checkpoints: [],
+        preBossSave: null,
+        lucasNPC: null,
+        bossTrigger: null,
+        phaseIndex,
+
+        init() {
+            player.reset();
+            player.x = 50;
+            player.y = 300;
+            player.health = SaveSystem.data.playerHealth || player.maxHealth;
+
+            AudioSystem.playMusic(musicTrack);
+
+            this.platforms = [
+                // Ground
+                { x: 0, y: 430, width: GAME_CONFIG.width, height: 110, color: platformColor },
+                // Platforms
+                { x: 100, y: 350, width: 120, height: 15, color: platformColor },
+                { x: 300, y: 310, width: 100, height: 15, color: platformColor },
+                { x: 500, y: 280, width: 130, height: 15, color: platformColor },
+                { x: 700, y: 330, width: 110, height: 15, color: platformColor },
+            ];
+
+            // Normal checkpoint
+            this.checkpoints = [
+                { x: 200, y: 400, active: false, id: phaseIndex * 3 },
+                { x: 500, y: 400, active: false, id: phaseIndex * 3 + 1 }
+            ];
+
+            // Pre-boss save point
+            this.preBossSave = {
+                x: 750, y: 400, active: false, id: phaseIndex
+            };
+
+            // Lucas NPC
+            this.lucasNPC = {
+                x: 650, y: 388, talked: false
+            };
+
+            // Boss trigger
+            this.bossTrigger = {
+                x: 880, y: 380, triggered: false
+            };
+        },
+
+        update() {
+            if (gameState !== 'playing') return;
+
+            player.update(this.platforms);
+
+            // Checkpoints
+            for (const cp of this.checkpoints) {
+                if (!cp.active &&
+                    Math.abs(player.x - cp.x) < 30 &&
+                    Math.abs(player.y - cp.y) < 50) {
+                    cp.active = true;
+                    if (!SaveSystem.saveBlocked) {
+                        SaveSystem.data.playerHealth = player.health;
+                        SaveSystem.save();
+                        DialogueSystem.showQuick('💾 Checkpoint ativado!');
+                        AudioSystem.playSave();
+                        EffectsSystem.spawnSaveEffect(cp.x, cp.y);
+                        SaveSystem.ActivateCheckpoint?.(cp.id);
+                    }
+                }
+            }
+
+            // Pre-boss save
+            if (this.preBossSave && !this.preBossSave.active &&
+                Math.abs(player.x - this.preBossSave.x) < 30 &&
+                Math.abs(player.y - this.preBossSave.y) < 50) {
+                this.preBossSave.active = true;
+                SaveSystem.saveBeforeBoss(phaseIndex);
+                player.heal(player.maxHealth);
+                DialogueSystem.showQuick('❤️ Vida restaurada! Prepare-se!');
+            }
+
+            // Lucas NPC
+            if (this.lucasNPC && !this.lucasNPC.talked &&
+                Math.abs(player.x - this.lucasNPC.x) < 40 &&
+                Math.abs(player.y - this.lucasNPC.y) < 50 &&
+                KEYS.action) {
+                this.lucasNPC.talked = true;
+                showLucasDialogue(phaseIndex);
+            }
+
+            // Boss trigger
+            if (this.bossTrigger && !this.bossTrigger.triggered &&
+                player.x > this.bossTrigger.x) {
+                this.bossTrigger.triggered = true;
+                const boss = bossCreator();
+                BattleSystem.startBattle(boss);
+            }
+        },
+
+        draw(ctx) {
+            // Background
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
+
+            // Background details based on phase
+            drawPhaseBackground(ctx, phaseIndex);
+
+            // Platforms
+            for (const p of this.platforms) {
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, p.width, p.height);
+                ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+                ctx.strokeRect(p.x, p.y, p.width, p.height);
+            }
+
+            // Checkpoints
+            for (const cp of this.checkpoints) {
+                const glow = Math.sin(Date.now()/400) * 0.3;
+                ctx.fillStyle = cp.active
+                    ? 'rgba(100,100,100,0.5)'
+                    : `rgba(255,200,50,${0.7+glow})`;
+                ctx.fillRect(cp.x - 8, cp.y - 25, 16, 25);
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillText(cp.active ? '✓' : '★', cp.x, cp.y - 30);
+            }
+
+            // Pre-boss save
+            if (this.preBossSave) {
+                const glow = Math.sin(Date.now()/300) * 0.3;
+                ctx.fillStyle = this.preBossSave.active
+                    ? 'rgba(100,100,100,0.5)'
+                    : `rgba(255,100,50,${0.8+glow})`;
+                ctx.fillRect(this.preBossSave.x - 10, this.preBossSave.y - 30, 20, 30);
+                ctx.fillStyle = '#fff';
+                ctx.font = '11px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillText(
+                    this.preBossSave.active ? '✓ SALVO' : '★ BOSS SAVE',
+                    this.preBossSave.x, this.preBossSave.y - 35);
+            }
+
+            // Lucas NPC
+            if (this.lucasNPC) {
+                drawLucasNPC(ctx, this.lucasNPC.x, this.lucasNPC.y);
+                if (!this.lucasNPC.talked &&
+                    Math.abs(player.x - this.lucasNPC.x) < 60) {
+                    ctx.fillStyle = '#4af';
+                    ctx.font = '12px Courier New';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('[E] Falar com Lucas',
+                        this.lucasNPC.x, this.lucasNPC.y - 50);
+                }
+            }
+
+            // Boss trigger indicator
+            if (this.bossTrigger && !this.bossTrigger.triggered) {
+                const pulse = Math.sin(Date.now()/300) > 0;
+                if (pulse) {
+                    ctx.fillStyle = '#ff4444';
+                    ctx.font = '12px Courier New';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('⚠️ BOSS →', this.bossTrigger.x - 30,
+                        this.bossTrigger.y - 20);
+                }
+            }
+
+            // Player
+            player.draw(ctx);
+
+            // HUD
+            drawHUD(ctx, phaseIndex);
+        },
+
+        click(mx, my) {
+            if (gameState === 'battle') {
+                BattleSystem.handleClick(mx, my);
+            }
+        }
+    };
+}
+
+// Create phase scenes
+scenes.phase1 = createPhaseScene(0, '#0a0a2e', '#1a1a4e', createBoss1, 'phase1');
+scenes.phase2 = createPhaseScene(1, '#1a0505', '#3a1515', createBoss2, 'phase2');
+scenes.phase3 = createPhaseScene(2, '#05051a', '#151530', createBoss3, 'phase3');
+scenes.phaseFinal = createPhaseScene(3, '#021002', '#0a2a0a', createFinalBoss, 'phaseFinal');
+
+// --- DEATH SCREEN ---
+scenes.death = {
+    timer: 0,
+    buttons: [
+        { x: 280, y: 320, w: 180, h: 40, text: 'Tentar Novamente' },
+        { x: 500, y: 320, w: 180, h: 40, text: 'Menu Principal' }
+    ],
+
+    init() {
+        this.timer = 0;
+        AudioSystem.playMusic('gameover');
+    },
+
+    update() { this.timer++; },
+
+    draw(ctx) {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
+
+        if (this.timer > 30) {
+            ctx.fillStyle = '#ff4444';
+            ctx.font = 'bold 36px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER', GAME_CONFIG.width/2, 150);
+        }
+
+        if (this.timer > 90) {
+            const messages = [
+                "Você caiu...",
+                "Mas a determinação te mantém vivo.",
+                "Alguém ainda precisa de você."
+            ];
+            ctx.fillStyle = '#888';
+            ctx.font = '16px Courier New';
+            messages.forEach((m, i) => {
+                ctx.fillText(m, GAME_CONFIG.width/2, 220 + i * 30);
+            });
+        }
+
+        if (this.timer > 150) {
+            for (const btn of this.buttons) {
+                const hover = mouseX >= btn.x && mouseX <= btn.x + btn.w &&
+                              mouseY >= btn.y && mouseY <= btn.y + btn.h;
+                ctx.fillStyle = hover ? '#4af' : 'rgba(0,0,0,0.7)';
+                ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
+                ctx.strokeStyle = '#4af';
+                ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
+                ctx.fillStyle = hover ? '#000' : '#fff';
+                ctx.font = '14px Courier New';
+                ctx.fillText(btn.text, btn.x + btn.w/2, btn.y + btn.h/2 + 5);
+            }
+        }
+    },
+
+    click(mx, my) {
+        if (this.timer < 150) return;
+        if (mx >= 280 && mx <= 460 && my >= 320 && my <= 360) {
+            const phase = SaveSystem.data.currentPhase;
+            const scenes = ['phase1','phase2','phase3','phaseFinal'];
+            player.reset();
+            player.health = player.maxHealth;
+            changeScene(scenes[Math.min(phase, 3)]);
+        }
+        if (mx >= 500 && mx <= 680 && my >= 320 && my <= 360) {
+            changeScene('menu');
+        }
+    }
+};
+
+// --- CREDITS ---
+scenes.credits = {
+    scrollY: 0,
+    timer: 0,
+
+    init() {
+        this.scrollY = 0;
+        this.timer = 0;
+        const mercy = SaveSystem.data.finalBossMercy;
+        AudioSystem.playMusic(mercy ? 'victory' : 'gameover');
+    },
+
+    update() {
+        this.timer++;
+        this.scrollY += 0.5;
+    },
+
+    draw(ctx) {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
+
+        const credits = [
+            '',
+            '════════════════════════',
+            'ENTRE LINHAS E TELAS',
+            '════════════════════════',
+            '',
+            '── DESENVOLVIMENTO ──',
+            'Game Design: Você',
+            'Programação: Você',
+            'Arte: Gerada por código',
+            '',
+            '── HISTÓRIA ──',
+            'Roteiro: Você',
+            '',
+            '── ÁUDIO ──',
+            'Música: Procedural',
+            'SFX: Web Audio API',
+            '',
+            '── INSPIRAÇÃO ──',
+            'Toby Fox - Undertale',
+            '',
+            '── MENSAGEM ──',
+            '',
+            'Este jogo foi criado com a crença',
+            'de que tecnologia e humanidade',
+            'não precisam ser opostos.',
+            '',
+            'Use a tecnologia para conectar.',
+            'Para criar. Para ajudar.',
+            '',
+            '── OBRIGADO ──',
+            '',
+            'Obrigado por jogar.',
+            'Obrigado por não desistir.',
+            '',
+            '',
+            SaveSystem.data.finalBossMercy
+                ? '"Obrigado por não desistir de mim." — Lucas'
+                : '"Tente novamente?" — ???',
+            '',
+            '',
+            'FIM',
+            '',
+            '',
+            'Clique para voltar ao menu'
+        ];
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px Courier New';
+        ctx.textAlign = 'center';
+
+        credits.forEach((line, i) => {
+            const y = GAME_CONFIG.height - this.scrollY + i * 30;
+            if (y > -20 && y < GAME_CONFIG.height + 20) {
+                if (line.includes('═')) ctx.fillStyle = '#4af';
+                else if (line.includes('──')) ctx.fillStyle = '#ffcc33';
+                else if (line.includes('"')) ctx.fillStyle = '#44ff88';
+                else ctx.fillStyle = '#fff';
+                ctx.fillText(line, GAME_CONFIG.width/2, y);
+            }
+        });
+    },
+
+    click() {
+        changeScene('menu');
+    }
+};
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 14: HELPERS DE DESENHO
+// ══════════════════════════════════════════════════════
+
+function drawPhaseBackground(ctx, phase) {
+    switch(phase) {
+        case 0: // City neon
+            for (let i = 0; i < 8; i++) {
+                const h = 80 + Math.sin(i*2.5)*40;
+                ctx.fillStyle = '#0f0f33';
+                ctx.fillRect(i*120+10, 430-h, 100, h);
+                // Windows
+                for (let j = 0; j < 5; j++) {
+                    ctx.fillStyle = Math.random() > 0.5 ? '#00ccff44' : '#ffcc0044';
+                    ctx.fillRect(i*120+20+j*15, 440-h+10+Math.floor(Math.random()*h*0.7), 6, 6);
+                }
+            }
+            break;
+        case 1: // Chaotic red
+            for (let i = 0; i < 6; i++) {
+                ctx.fillStyle = `rgba(200,30,30,${0.1+Math.random()*0.1})`;
+                ctx.fillRect(Math.random()*GAME_CONFIG.width-50, Math.random()*300, 200, 20);
+            }
+            break;
+        case 2: // Empty cold
+            ctx.fillStyle = 'rgba(100,120,180,0.3)';
+            ctx.fillRect(200, 150, 100, 130);
+            ctx.fillStyle = 'rgba(100,120,180,0.1)';
+            ctx.fillRect(230, 280, 40, 150);
+            break;
+        case 3: // Tech lab
+            ctx.strokeStyle = 'rgba(0,255,100,0.15)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < GAME_CONFIG.width; x += 60) {
+                ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,GAME_CONFIG.height); ctx.stroke();
+            }
+            for (let y = 0; y < GAME_CONFIG.height; y += 60) {
+                ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(GAME_CONFIG.width,y); ctx.stroke();
+            }
+            break;
+    }
+}
+
+function drawLucasNPC(ctx, x, y) {
+    // Simple Lucas character
+    ctx.fillStyle = '#ffcc99';
+    ctx.fillRect(x-8, y-25, 16, 16); // head
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x-9, y-28, 18, 5); // hair
+    ctx.fillStyle = '#111';
+    ctx.fillRect(x-9, y-9, 18, 22); // body
+    ctx.fillStyle = '#00ff66';
+    ctx.fillRect(x-5, y-3, 10, 2); // tech line
+    ctx.fillStyle = '#0a0a22';
+    ctx.fillRect(x-6, y+13, 6, 12); // legs
+    ctx.fillRect(x, y+13, 6, 12); // legs
+
+    // Name label
+    ctx.fillStyle = '#00ff66';
+    ctx.font = '10px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText('Lucas', x, y - 35);
+}
+
+function drawHUD(ctx, phase) {
+    // HP Bar
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(10, 10, 200, 25);
+    ctx.fillStyle = '#ff4444';
+    ctx.fillRect(12, 12, 196 * (player.health / player.maxHealth), 21);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(10, 10, 200, 25);
+    ctx.fillStyle = '#fff';
+    ctx.font = '12px Courier New';
+    ctx.textAlign = 'left';
+    ctx.fillText(`❤️ ${Math.ceil(player.health)}/${player.maxHealth}`, 15, 27);
+
+    // Phase indicator
+    ctx.fillStyle = '#888';
+    ctx.font = '11px Courier New';
+    ctx.textAlign = 'right';
+    const phaseNames = ['Fase 1: Vício Digital', 'Fase 2: Desinformação',
+                        'Fase 3: Isolamento Social', 'Fase Final: Lucas'];
+    ctx.fillText(phaseNames[phase] || '', GAME_CONFIG.width - 10, 25);
+
+    // Controls hint
+    if (isMobile) return;
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '10px Courier New';
+    ctx.textAlign = 'left';
+    ctx.fillText('← → Mover  |  ESPAÇO Pular  |  E Interagir  |  ESC Menu', 10, GAME_CONFIG.height - 10);
+}
+
+function showLucasDialogue(phase) {
+    const dialogues = [
+        ['Esse cara que você vai enfrentar... era eu meses atrás.',
+         'Preso na tela, sem dormir, sem comer direito.',
+         'Tente conversar com ele. Por favor.'],
+        ['Esse próximo inimigo é traiçoeiro.',
+         'Ele acredita em tudo que vê na internet.',
+         'Mostre pra ele que a verdade importa.'],
+        ['Esse é o que mais me dói.',
+         'Ele construiu muros digitais ao redor de si.',
+         'Não ataque. Fala com ele. Quantas vezes precisar.'],
+        ['Eu vi tudo que você fez.',
+         'Você ajudou cada um deles.',
+         'Agora sou eu. Me convença.',
+         'Me mostre que as conexões humanas ainda valem mais.']
+    ];
+    const lines = dialogues[Math.min(phase, dialogues.length-1)];
+    DialogueSystem.startDialogue('Lucas', lines);
+    SaveSystem.data.dialoguesSeen['lucas_'+phase] = true;
+
+    // Check listener achievement
+    let allSeen = true;
+    for (let i = 0; i < 4; i++) {
+        if (!SaveSystem.data.dialoguesSeen['lucas_'+i]) allSeen = false;
+    }
+    if (allSeen) AchievementSystem.unlock('listener');
+}
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 15: GAME LOOP
+// ══════════════════════════════════════════════════════
+
+function changeScene(name) {
+    if (scenes[name]) {
+        currentScene = scenes[name];
+        if (currentScene.init) currentScene.init();
+        if (name !== 'death' && name !== 'credits' && name !== 'menu' &&
+            name !== 'achievementsScreen')
+            gameState = 'playing';
+    }
+}
+
+function gameLoop(timestamp) {
+    deltaTime = timestamp - lastTime;
+    lastTime = timestamp;
+    frameCount++;
+
+    // Clear
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Update
+    if (currentScene?.update) currentScene.update();
+    if (gameState === 'battle') BattleSystem.update();
+    if (gameState === 'story') updateStory();
+    DialogueSystem.update();
+    EffectsSystem.update();
+    AchievementSystem.update();
+
+    // Draw
+    if (currentScene?.draw) currentScene.draw(ctx);
+    if (gameState === 'battle') BattleSystem.draw(ctx);
+    if (gameState === 'story') drawStory(ctx);
+    DialogueSystem.draw(ctx);
+    EffectsSystem.draw(ctx);
+    AchievementSystem.draw(ctx);
+
+    requestAnimationFrame(gameLoop);
+}
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 16: INPUT
+// ══════════════════════════════════════════════════════
+
+function setupInput() {
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+        AudioSystem.resume();
+        switch(e.key) {
+            case 'ArrowLeft': case 'a': KEYS.left = true; break;
+            case 'ArrowRight': case 'd': KEYS.right = true; break;
+            case 'ArrowUp': case 'w': KEYS.up = true; break;
+            case 'ArrowDown': case 's': KEYS.down = true; break;
+            case ' ': KEYS.jump = true; e.preventDefault(); break;
+            case 'e': case 'E': KEYS.action = true; break;
+            case 'Escape': KEYS.escape = true; break;
+        }
+
+        // Dialogue advance
+        if (e.key === ' ' && DialogueSystem.active) {
+            DialogueSystem.nextLine();
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        switch(e.key) {
+            case 'ArrowLeft': case 'a': KEYS.left = false; break;
+            case 'ArrowRight': case 'd': KEYS.right = false; break;
+            case 'ArrowUp': case 'w': KEYS.up = false; break;
+            case 'ArrowDown': case 's': KEYS.down = false; break;
+            case ' ': KEYS.jump = false; break;
+            case 'e': case 'E': KEYS.action = false; break;
+            case 'Escape': KEYS.escape = false; break;
+        }
+    });
+
+    // Mouse
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+        mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+    });
+
+    canvas.addEventListener('click', (e) => {
+        AudioSystem.resume();
+        const rect = canvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+        if (DialogueSystem.active) {
+            DialogueSystem.nextLine();
+            return;
+        }
+
+        if (gameState === 'story') {
+            clickStory();
+            return;
+        }
+
+        if (currentScene?.click) currentScene.click(mx, my);
+    });
+
+    // Touch (mobile)
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        AudioSystem.resume();
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        mouseX = (touch.clientX - rect.left) * (canvas.width / rect.width);
+        mouseY = (touch.clientY - rect.top) * (canvas.height / rect.height);
+
+        if (DialogueSystem.active) {
+            DialogueSystem.nextLine();
+            return;
+        }
+
+        if (gameState === 'story') {
+            clickStory();
+            return;
+        }
+
+        if (currentScene?.click) currentScene.click(mouseX, mouseY);
+    }, { passive: false });
+
+    // Mobile buttons
+    const btnLeft = document.getElementById('btn-left');
+    const btnRight = document.getElementById('btn-right');
+    const btnJump = document.getElementById('btn-jump');
+    const btnAction = document.getElementById('btn-action');
+
+    if (btnLeft) {
+        btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); KEYS.left = true; AudioSystem.resume(); }, {passive:false});
+        btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); KEYS.left = false; }, {passive:false});
+    }
+    if (btnRight) {
+        btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); KEYS.right = true; AudioSystem.resume(); }, {passive:false});
+        btnRight.addEventListener('touchend', (e) => { e.preventDefault(); KEYS.right = false; }, {passive:false});
+    }
+    if (btnJump) {
+        btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); KEYS.jump = true; AudioSystem.resume(); }, {passive:false});
+        btnJump.addEventListener('touchend', (e) => { e.preventDefault(); KEYS.jump = false; }, {passive:false});
+    }
+    if (btnAction) {
+        btnAction.addEventListener('touchstart', (e) => { e.preventDefault(); KEYS.action = true; AudioSystem.resume(); }, {passive:false});
+        btnAction.addEventListener('touchend', (e) => { e.preventDefault(); KEYS.action = false; }, {passive:false});
+    }
+
+    // Detect mobile
+    isMobile = 'ontouchstart' in window ||
+               navigator.maxTouchPoints > 0;
+
+    if (isMobile) {
+        document.getElementById('mobile-controls').style.display = 'block';
+    }
+}
+
+// ══════════════════════════════════════════════════════
+// SEÇÃO 17: INICIALIZAÇÃO
+// ══════════════════════════════════════════════════════
+
+function init() {
+    // Create canvas
+    canvas = document.createElement('canvas');
+    canvas.width = GAME_CONFIG.width;
+    canvas.height = GAME_CONFIG.height;
+    document.getElementById('game-container').appendChild(canvas);
+    ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    // Init systems
+    SaveSystem.init();
+    AudioSystem.init();
+
+    // Setup input
+    setupInput();
+
+    // Hide loading screen
+    const loadingFill = document.getElementById('loading-fill');
+    const loadingText = document.getElementById('loading-text');
+
+    let progress = 0;
+    const loadInterval = setInterval(() => {
+        progress += 10;
+        loadingFill.style.width = progress + '%';
+        loadingText.textContent = `Carregando... ${progress}%`;
+
+        if (progress >= 100) {
+            clearInterval(loadInterval);
+            setTimeout(() => {
+                document.getElementById('loading').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('loading').style.display = 'none';
+                    changeScene('menu');
+                    gameState = 'menu';
+                    requestAnimationFrame(gameLoop);
+                }, 1000);
+            }, 500);
+        }
+    }, 100);
+}
+
+// Start when page loads
+window.addEventListener('load', init);
+
+    </script>
+</body>
+</html>
