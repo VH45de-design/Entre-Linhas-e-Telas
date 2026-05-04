@@ -9,13 +9,14 @@
 body{background:#000;overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;touch-action:none;user-select:none}
 #w{position:relative;width:min(100vw,960px);height:min(100vh,540px)}
 canvas{width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
-.mb{position:absolute;width:52px;height:52px;border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;border-radius:8px;display:none;align-items:center;justify-content:center;font-size:20px;pointer-events:auto;touch-action:none}
+.mb{position:absolute;width:48px;height:48px;border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;border-radius:8px;display:none;align-items:center;justify-content:center;font-size:18px;pointer-events:auto;touch-action:none}
 @media(max-width:800px){.mb{display:flex}}
-#ml{left:12px;bottom:16px}
-#mr{left:72px;bottom:16px}
-#mu{right:72px;bottom:16px}
-#md{right:12px;bottom:72px}
-#ma{right:12px;bottom:16px}
+#ml{left:10px;bottom:14px}
+#mr{left:66px;bottom:14px}
+#mu{right:66px;bottom:14px}
+#md{right:10px;bottom:66px}
+#ma{right:10px;bottom:14px}
+#mz{right:66px;bottom:66px}
 </style>
 </head>
 <body>
@@ -27,53 +28,46 @@ canvas{width:100%;height:100%;display:block;image-rendering:pixelated;image-rend
 <div class="mb" id="mu">▲</div>
 <div class="mb" id="md">▼</div>
 <div class="mb" id="ma">A</div>
+<div class="mb" id="mz">Z</div>
 </div>
 </div>
 <script>
-// ════════════════════════════════════════════════════
-// ENTRE LINHAS E TELAS - RPG Completo
+// ════════════════════════════════════════════════
+// ENTRE LINHAS E TELAS - RPG COMPLETO v3
 // Criação: VH45de
 // Orientação: IA para produção do jogo
-// ════════════════════════════════════════════════════
+// ════════════════════════════════════════════════
 
 const W=960,H=540;
 const cv=document.getElementById("c");
 const cx=cv.getContext("2d");
 cx.imageSmoothingEnabled=false;
 
-// ════════ GLOBALS ════════
-let frame=0,state="boot",fadeAlpha=1,fadeDir=0;
-const K={l:0,r:0,u:0,d:0,a:0,c:0};
+let frame=0,state="boot",fadeA=1,fadeD=0,prevState="world";
+const K={l:0,r:0,u:0,d:0,a:0,z:0,c:0};
 let mx=0,my=0;
 
-// ════════ COLORS ════════
+// ════════ PALETA ════════
 const P={
   bk:"#000",wh:"#fff",gy:"#9d9d9d",dg:"#333",
   rd:"#ff2b2b",hr:"#ff1744",bl:"#3b82ff",cy:"#44dfff",
   yl:"#ffd24a",or:"#ff9a2e",gn:"#47ff79",pr:"#9b59ff",
-  pk:"#ff62c7",sk:"#f3c9a4",sk2:"#d4a67a",hr2:"#3e2417",
+  pk:"#ff62c7",sk:"#f3c9a4",hr2:"#3e2417",
   sh:"#326cff",sh2:"#1f46a9",pn:"#2b2d78",bk2:"#111",
-  ct:"#1d1d1d",tc:"#2dff84",bg1:"#081226",bg2:"#240909",
-  bg3:"#0a0c1f",bg4:"#031307"
+  ct:"#1d1d1d",tc:"#2dff84",
+  soulBlue:"#2244ff",soulGreen:"#22ff44",soulYellow:"#ffdd22",
+  soulPurple:"#aa22ff",soulRed:"#ff2244"
 };
 
 // ════════ SAVE ════════
 const SV={
-  k:"elt_rpgv3",
-  d:{phase:0,hp:20,maxHp:20,lv:1,xp:0,
-     kills:0,mercies:0,talks:0,acts:0,
-     bossState:{},lucas:{},items:[],
-     flags:{},deaths:0,noHitBosses:{},
-     attackedFinal:false,playTime:0},
-  load(){
-    try{const s=localStorage.getItem(this.k);
-    if(s)this.d={...this.d,...JSON.parse(s)}}catch(e){}
-  },
-  save(){
-    if(state==="battle")return;
-    try{localStorage.setItem(this.k,JSON.stringify(this.d))}catch(e){}
-  },
-  reset(){localStorage.removeItem(this.k);this.d={phase:0,hp:20,maxHp:20,lv:1,xp:0,kills:0,mercies:0,talks:0,acts:0,bossState:{},lucas:{},items:[],flags:{},deaths:0,noHitBosses:{},attackedFinal:false,playTime:0}}
+  k:"elt_v3_full",
+  d:{phase:0,hp:20,maxHp:20,lv:1,xp:0,kills:0,mercies:0,talks:0,acts:0,
+     bossState:{},lucas:{},flags:{},deaths:0,noHit:{},attackedFinal:false,playTime:0,
+     preBoss:false,items:[]},
+  load(){try{const s=localStorage.getItem(this.k);if(s)this.d={...this.d,...JSON.parse(s)}}catch(e){}},
+  save(){if(state==="battle")return;try{localStorage.setItem(this.k,JSON.stringify(this.d))}catch(e){}},
+  reset(){localStorage.removeItem(this.k);this.d={phase:0,hp:20,maxHp:20,lv:1,xp:0,kills:0,mercies:0,talks:0,acts:0,bossState:{},lucas:{},flags:{},deaths:0,noHit:{},attackedFinal:false,playTime:0,preBoss:false,items:[]}}
 };
 SV.load();
 
@@ -83,8 +77,7 @@ const AU={
   init(){try{this.x=new(window.AudioContext||window.webkitAudioContext)}catch(e){}},
   res(){if(this.x&&this.x.state==="suspended")this.x.resume()},
   t(f=440,d=.08,tp="square",v=.02){
-    if(!this.x)return;
-    const o=this.x.createOscillator(),g=this.x.createGain();
+    if(!this.x)return;const o=this.x.createOscillator(),g=this.x.createGain();
     o.type=tp;o.frequency.value=f;g.gain.value=v;
     g.gain.exponentialRampToValueAtTime(.0001,this.x.currentTime+d);
     o.connect(g);g.connect(this.x.destination);o.start();o.stop(this.x.currentTime+d)
@@ -98,6 +91,9 @@ const AU={
   die(){this.t(300,.3,"sawtooth",.03);setTimeout(()=>this.t(200,.3,"sawtooth",.03),300);setTimeout(()=>this.t(100,.5,"sawtooth",.03),600)},
   win(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>this.t(f,.2,"sine",.03),i*150))},
   lvl(){this.t(440,.05,"sine",.02);setTimeout(()=>this.t(554,.05,"sine",.02),50);setTimeout(()=>this.t(659,.1,"sine",.02),100)},
+  crit(){this.t(880,.06,"square",.03);setTimeout(()=>this.t(1100,.08,"square",.03),60)},
+  miss(){this.t(150,.15,"triangle",.025)},
+  soulChange(){this.t(400,.06,"sine",.025);setTimeout(()=>this.t(600,.08,"sine",.025),80)},
   mi:null,mt:"",
   playM(track){
     this.stopM();this.mt=track;
@@ -112,8 +108,7 @@ const AU={
       victory:{n:[523,523,523,523,415,466,523,466,523],t:200,tp:"sine",v:.008},
       sad:{n:[262,247,220,196,175,196,220,196],t:500,tp:"triangle",v:.006}
     };
-    const p=patterns[track];if(!p)return;
-    let i=0;
+    const p=patterns[track];if(!p)return;let i=0;
     this.mi=setInterval(()=>{this.t(p.n[i%p.n.length],p.t/1000*.8,p.tp,p.v);i++},p.t)
   },
   stopM(){if(this.mi){clearInterval(this.mi);this.mi=null;this.mt=""}}
@@ -125,624 +120,601 @@ function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
 function cText(t,y,s=16,c="#fff"){cx.fillStyle=c;cx.font=s+"px monospace";cx.textAlign="center";cx.fillText(t,W/2,y);cx.textAlign="left"}
 function box(x,y,w,h,f="#000",s="#fff",lw=2){cx.fillStyle=f;cx.fillRect(x,y,w,h);cx.strokeStyle=s;cx.lineWidth=lw;cx.strokeRect(x,y,w,h)}
 function px(map,ox,oy,sc,pal,flip=false){
-  for(let r=0;r<map.length;r++)
-    for(let c=0;c<map[r].length;c++){
-      const ch=map[r][c];if(ch==="."||!pal[ch])continue;
-      cx.fillStyle=pal[ch];
-      const dx=flip?(map[r].length-1-c):c;
-      cx.fillRect(Math.round(ox+dx*sc),Math.round(oy+r*sc),sc,sc)
-    }
-}
-function wrapT(t,x,y,mw,lh){
-  const w=t.split(" ");let l="";
-  for(let i=0;i<w.length;i++){
-    const test=l+w[i]+" ";
-    if(cx.measureText(test).width>mw&&i>0){cx.fillText(l,x,y);l=w[i]+" ";y+=lh}
-    else l=test
+  for(let r=0;r<map.length;r++)for(let c=0;c<map[r].length;c++){
+    const ch=map[r][c];if(ch==="."||!pal[ch])continue;cx.fillStyle=pal[ch];
+    const dx=flip?(map[r].length-1-c):c;cx.fillRect(Math.round(ox+dx*sc),Math.round(oy+r*sc),sc,sc)
   }
-  cx.fillText(l,x,y)
 }
-function fade(dir,speed=0.02){fadeDir=dir;if(dir>0)fadeAlpha=0;else fadeAlpha=1}
-function updateFade(){
-  if(fadeDir>0){fadeAlpha=Math.min(1,fadeAlpha+0.025)}
-  else if(fadeDir<0){fadeAlpha=Math.max(0,fadeAlpha-0.025)}
-}
-function drawFade(){if(fadeAlpha>0.01){cx.fillStyle=`rgba(0,0,0,${fadeAlpha})`;cx.fillRect(0,0,W,H)}}
+function wrapT(t,x,y,mw,lh){const w=t.split(" ");let l="";for(let i=0;i<w.length;i++){const test=l+w[i]+" ";if(cx.measureText(test).width>mw&&i>0){cx.fillText(l,x,y);l=w[i]+" ";y+=lh}else l=test}cx.fillText(l,x,y)}
+function updateFade(){if(fadeD>0)fadeA=Math.min(1,fadeA+.025);else if(fadeD<0)fadeA=Math.max(0,fadeA-.025)}
+function drawFade(){if(fadeA>.01){cx.fillStyle=`rgba(0,0,0,${fadeA})`;cx.fillRect(0,0,W,H)}}
 
-// ════════ SPRITE DATA ════════
-// Player (estudante com mochila)
+// ════════ PARTICLES ════════
+const FX={
+  p:[],
+  spawn(x,y,count,color,spd=3,life=30){
+    for(let i=0;i<count;i++){
+      const a=Math.random()*Math.PI*2;
+      const s=Math.random()*spd+1;
+      this.p.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:life+Math.random()*15,ml:life+15,s:2+Math.random()*3,c:color})
+    }
+  },
+  spawnCrit(x,y){this.spawn(x,y,15,P.yl,5,25);this.spawn(x,y,8,P.wh,3,20)},
+  spawnMiss(x,y){this.spawn(x,y,5,P.gy,2,15)},
+  spawnHeal(x,y){this.spawn(x,y,10,P.gn,2,30)},
+  spawnDeath(x,y){this.spawn(x,y,30,P.rd,6,40)},
+  spawnSoulChange(x,y,color){this.spawn(x,y,12,color,3,25)},
+  update(){for(let i=this.p.length-1;i>=0;i--){const p=this.p[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.05;p.l--;if(p.l<=0)this.p.splice(i,1)}},
+  draw(){for(const p of this.p){cx.globalAlpha=p.l/p.ml;cx.fillStyle=p.c;cx.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s)}cx.globalAlpha=1}
+};
+
+// ════════ SPRITES ════════
 const SP_IDLE=[
-"....hhhh....",
-"...hhhhhh...",
-"..hssssssh..",
-"..seweewes..",
-"..ssssssss..",
-"...smmmms...",
-"....ssss....",
-"..rbbbbbbr..",
-"..rbblbbr...",
-"..rbbbbbbr..",
-"...pppppp...",
-"...pp..pp...",
-"...pp..pp...",
-"...kk..kk..."
+"....hhhh....","...hhhhhh...","..hssssssh..","..seweewes..","..ssssssss..","...smmmms...","....ssss....","..rbbbbbbr..","..rbblbbr...","..rbbbbbbr..","...pppppp...","...pp..pp...","...pp..pp...","...kk..kk..."
 ];
 const SP_W1=[
-"....hhhh....",
-"...hhhhhh...",
-"..hssssssh..",
-"..seweewes..",
-"..ssssssss..",
-"...smmmms...",
-"....ssss....",
-"..rbbbbbbr..",
-"..rbblbbr...",
-"..rbbbbbbr..",
-"...pppppp...",
-"..pp....pp..",
-"...pp..pp...",
-"..kk....kk.."
+"....hhhh....","...hhhhhh...","..hssssssh..","..seweewes..","..ssssssss..","...smmmms...","....ssss....","..rbbbbbbr..","..rbblbbr...","..rbbbbbbr..","...pppppp...","..pp....pp..","...pp..pp...","..kk....kk.."
 ];
 const SP_W2=[
-"....hhhh....",
-"...hhhhhh...",
-"..hssssssh..",
-"..seweewes..",
-"..ssssssss..",
-"...smmmms...",
-"....ssss....",
-"..rbbbbbbr..",
-"..rbblbbr...",
-"..rbbbbbbr..",
-"...pppppp...",
-"...pp..pp...",
-"..pp....pp..",
-"...kk..kk..."
+"....hhhh....","...hhhhhh...","..hssssssh..","..seweewes..","..ssssssss..","...smmmms...","....ssss....","..rbbbbbbr..","..rbblbbr...","..rbbbbbbr..","...pppppp...","...pp..pp...","..pp....pp..","...kk..kk..."
 ];
-const SP_PAL={
-  h:P.hr2,s:P.sk,e:P.wh,w:P.bl,m:"#c66b6b",
-  b:P.sh,l:P.sh2,r:P.pn,p:P.pn,k:P.bk2
-};
+const SP_PAL={h:P.hr2,s:P.sk,e:P.wh,w:P.bl,m:"#c66b6b",b:P.sh,l:P.sh2,r:P.pn,p:P.pn,k:P.bk2};
 
-// Lucas NPC (normal)
 const LUCAS_NPC=[
-"....hhhh....",
-"...hhhhhh...",
-"..hssssssh..",
-"..sseesses..",
-"..ssggggss..",
-"...smmmms...",
-"....ssss....",
-"...jjjjjj...",
-"..jjtttjj...",
-"...jjjjjj...",
-"...pppppp...",
-"...pp..pp...",
-"...kk..kk..."
+"....hhhh....","...hhhhhh...","..hssssssh..","..sseesses..","..ssggggss..","...smmmms...","....ssss....","...jjjjjj...","..jjtttjj...","...jjjjjj...","...pppppp...","...pp..pp...","...kk..kk..."
 ];
-const LUCAS_NPC_PAL={
-  h:"#1a1a1a",s:P.sk,e:P.wh,g:P.tc,m:"#8a5050",
-  j:P.ct,t:"#0a3a1e",p:"#1a1a40",k:P.bk2
-};
+const LUCAS_P={h:"#1a1a1a",s:P.sk,e:P.wh,g:P.tc,m:"#8a5050",j:P.ct,t:"#0a3a1e",p:"#1a1a40",k:P.bk2};
 
-// Boss 1 - Vício Digital (tela viva com cabos)
-const B1=[
-".....nnnnnn.....",
-"...nnccccccnn...",
-"..nccccccccccn..",
-"..nccrr.yy.ccn..",
-"..nccccccccccn..",
-"..nccbbbbbbccn..",
-"..nccccccccccn..",
-"...nnccccccnn...",
-"......tttt......",
-"....tttttttt....",
-"...ttttttttttt..",
-"...tt......tt...",
-"...ll......ll...",
-"...ll......ll..."
-];
+const B1=[".....nnnnnn.....","...nnccccccnn...","..nccccccccccn..","..nccrr.yy.ccn..","..nccccccccccn..","..nccbbbbbbccn..","..nccccccccccn...","...nnccccccnn...","......tttt......","....tttttttt....","...ttttttttttt..","...tt......tt...","...ll......ll...","...ll......ll..."];
 const B1P={n:"#0b1d2e",c:"#20c8f0",r:"#ff3333",y:"#ffe040",b:"#0d2840",t:"#162334",l:"#20c8f0"};
 
-// Boss 2 - Desinformação (múltiplas faces)
-const B2=[
-"......aaa.......",
-"...aafffffaa....",
-"..affffffffffa..",
-"..affe..ff..ffa.",
-"..afffffffmffa..",
-"..afffmmmmmffa..",
-"...affmddmmfa...",
-"....xxmddmxx....",
-"...xxxddddxxx...",
-"....xxddddxx....",
-"....qq....qq....",
-"...qq......qq...",
-"...qq......qq..."
-];
+const B2=["......aaa.......","...aafffffaa....","..affffffffffa..","..affe..ff..ffa.","..afffffffmffa..","..afffmmmmmffa..","...affmddmmfa...","....xxmddmxx....","...xxxddddxxx...","....xxddddxx....","....qq....qq....","...qq......qq...","...qq......qq..."];
 const B2P={a:"#7f2828",f:"#ffb040",e:"#111",m:"#2e0e0e",d:"#cc3030",x:"#5b1818",q:"#7f2828"};
 
-// Boss 3 forma A - Isolamento (na bolha)
-const B3A=[
-"....oooooooo....",
-"..ooppppppppoo..",
-".ooppppppppppo.",
-".oppp..hh..pppo.",
-".oppp..ss..pppo.",
-".oppp..ss..pppo.",
-".oppp.t..t.pppo.",
-".oppp..tt..pppo.",
-".ooppppppppppo.",
-"..ooppppppppoo..",
-"....oooooooo...."
-];
+const B3A=["....oooooooo....","..ooppppppppoo..","..oppppppppppo..","..opp..hh..ppo..","..opp..ss..ppo..","..opp..ss..ppo..","..opp.t..t.ppo..","..opp..tt..ppo..","..oppppppppppo..","..ooppppppppoo..","....oooooooo...."];
 const B3AP={o:"rgba(140,100,255,.45)",p:"rgba(100,60,200,.2)",h:"#8aa0c8",s:"#505878",t:"#2c3050"};
 
-// Boss 3 forma B - Transformado
-const B3B=[
-"....mmmmmmmm....",
-"..mmvvvvvvvvmm..",
-".mvvvvvvvvvvvm.",
-".mvv..hh..vvvm.",
-".mvvvvvvvvvvvm.",
-".mvv.XXXX.vvvm.",
-".mvvvvvvvvvvvm.",
-".mvvvtttttvvvm.",
-".mvvvvvvvvvvvm.",
-"..mmvvvvvvvvmm..",
-"....mmmmmmmm...."
-];
+const B3B=["....mmmmmmmm....","..mmvvvvvvvvmm..","..mvvvvvvvvvvm..","..mvv..hh..vvm..","..mvvvvvvvvvvm..","..mvv.XXXX.vvm..","..mvvvvvvvvvvm..","..mvvvtttttvvm..","..mvvvvvvvvvvm..","..mmvvvvvvvvmm..","....mmmmmmmm...."];
 const B3BP={m:"rgba(255,60,170,.6)",v:"#6e1650",h:P.wh,X:"#ff1188",t:"#2a0620"};
 
-// Boss Final - Lucas (tech coat, visor)
-const BF=[
-"....hhhhhh......",
-"...hhhhhhhhh....",
-"..hssssssssh....",
-"..ssvvvvvvss....",
-"..sseeggees....",
-"...ssmmmms.....",
-"....ssss.......",
-"..jjjjjjjjjj...",
-"..jjttggttjj...",
-"..jjttggttjj...",
-"..jjjjjjjjjj...",
-"..jjj....jjj...",
-"..ppp....ppp...",
-"..kk......kk..."
-];
+const BF=["....hhhhhh......","...hhhhhhhhh....","..hssssssssh....","..ssvvvvvvss....","..sseeggees....","...ssmmmms.....","....ssss.......","..jjjjjjjjjj...","..jjttggttjj...","..jjttggttjj...","..jjjjjjjjjj...","..jjj....jjj...","..ppp....ppp...","..kk......kk..."];
 const BFP={h:"#0a0a0a",s:P.sk,v:"rgba(0,255,100,.5)",e:P.wh,g:P.tc,m:"#704040",j:"#111",t:"#0a3020",p:"#181840",k:P.bk2};
 
-// Soul / Heart
-function drawSoul(x,y,r){
-  const p=1+Math.sin(frame/7)*.12;
-  cx.fillStyle="rgba(255,20,80,.18)";
-  cx.beginPath();cx.arc(x,y,r*1.8*p,0,Math.PI*2);cx.fill();
-  cx.fillStyle=P.hr;
-  cx.save();cx.translate(x,y);cx.rotate(Math.PI/4);
-  cx.fillRect(-r/2,-r/2,r,r);cx.restore();
-  cx.fillStyle="rgba(255,255,255,.25)";
-  cx.fillRect(x-r/3,y-r/2.5,r/3,r/3)
-}
+// ════════ CRITICAL BAR SYSTEM ════════
+const CritBar={
+  active:false,
+  pos:0,
+  speed:0.018,
+  dir:1,
+  // Zona de sucesso
+  zone:0.42,
+  zoneW:0.12,
+  // Super crit (zona menor)
+  superZone:0.46,
+  superW:0.04,
+  result:null, // null, "miss", "hit", "crit", "super"
+  resultTimer:0,
+  damage:0,
+  shakeTimer:0,
+  shakeIntensity:0,
+
+  start(bossLv=1){
+    this.active=true;
+    this.pos=0;
+    this.dir=1;
+    this.result=null;
+    this.resultTimer=0;
+    this.damage=0;
+    // Velocidade aumenta por level do boss
+    this.speed=0.016 + bossLv*0.004;
+    // Zona diminui por level
+    this.zoneW=Math.max(0.06, 0.14 - bossLv*0.02);
+    this.superW=Math.max(0.02, 0.05 - bossLv*0.008);
+    this.zone=0.42 + (Math.random()-0.5)*0.15;
+    this.superZone=this.zone + (this.zoneW-this.superW)/2;
+  },
+
+  update(){
+    if(!this.active)return;
+    if(this.result){
+      this.resultTimer--;
+      if(this.resultTimer<=0){this.active=false;this.result=null}
+      return;
+    }
+    this.pos+=this.speed*this.dir;
+    if(this.pos>=1||this.pos<=0)this.dir*=-1;
+    // Shake
+    if(this.shakeTimer>0)this.shakeTimer--;
+  },
+
+  confirm(){
+    if(!this.active||this.result)return 0;
+    const p=this.pos;
+    const baseDmg=5+SV.d.lv*2;
+
+    // Super critical (menor zona)
+    if(p>=this.superZone&&p<=this.superZone+this.superW){
+      this.result="super";
+      this.damage=Math.floor(baseDmg*3);
+      this.shakeTimer=15;this.shakeIntensity=8;
+      AU.crit();AU.crit();
+      FX.spawnCrit(480,380);
+    }
+    // Critical (zona verde)
+    else if(p>=this.zone&&p<=this.zone+this.zoneW){
+      this.result="crit";
+      this.damage=Math.floor(baseDmg*2);
+      this.shakeTimer=10;this.shakeIntensity=5;
+      AU.crit();
+      FX.spawnCrit(480,380);
+    }
+    // Hit normal (acertou mas fora da zona)
+    else if(p>=this.zone-0.15&&p<=this.zone+this.zoneW+0.15){
+      this.result="hit";
+      this.damage=baseDmg;
+      AU.hit();
+      FX.spawnMiss(480,380);
+    }
+    // Miss
+    else{
+      this.result="miss";
+      this.damage=Math.floor(baseDmg*0.3);
+      AU.miss();
+    }
+
+    this.resultTimer=45;
+    return this.damage;
+  },
+
+  draw(){
+    if(!this.active)return;
+
+    const bx=280,by=380,bw=400,bh=24;
+
+    // Shake offset
+    let sx=0,sy=0;
+    if(this.shakeTimer>0){
+      sx=(Math.random()-.5)*this.shakeIntensity;
+      sy=(Math.random()-.5)*this.shakeIntensity;
+    }
+
+    cx.save();
+    cx.translate(sx,sy);
+
+    // Barra de fundo
+    box(bx,by,bw,bh,"#222",P.wh,2);
+
+    // Zona de hit (amarelo)
+    const hitStart=this.zone-0.15;
+    const hitEnd=this.zone+this.zoneW+0.15;
+    cx.fillStyle="rgba(255,200,50,.15)";
+    cx.fillRect(bx+bw*hitStart,by+2,bw*(hitEnd-hitStart),bh-4);
+
+    // Zona de crit (verde)
+    cx.fillStyle=P.gn;
+    cx.fillRect(bx+bw*this.zone,by+2,bw*this.zoneW,bh-4);
+
+    // Zona super crit (amarelo brilhante)
+    cx.fillStyle=P.yl;
+    cx.fillRect(bx+bw*this.superZone,by+4,bw*this.superW,bh-8);
+
+    // Cursor
+    if(!this.result){
+      cx.fillStyle=P.wh;
+      cx.fillRect(bx+bw*this.pos-2,by-4,4,bh+8);
+      // Sombra do cursor
+      cx.fillStyle="rgba(255,255,255,.3)";
+      cx.fillRect(bx+bw*this.pos-1,by-8,2,bh+16);
+    }
+
+    // Labels
+    cx.font="10px monospace";cx.textAlign="center";
+    cx.fillStyle=P.gy;
+    cx.fillText("MISS",bx+bw*0.1,by-6);
+    cx.fillStyle=P.gn;
+    cx.fillText("CRIT",bx+bw*(this.zone+this.zoneW/2),by-6);
+    cx.fillStyle=P.gy;
+    cx.fillText("MISS",bx+bw*0.9,by-6);
+
+    // Resultado
+    if(this.result){
+      cx.font="bold 24px monospace";cx.textAlign="center";
+      if(this.result==="super"){
+        cx.fillStyle=P.yl;
+        const pulse=1+Math.sin(frame/3)*0.2;
+        cx.font=`bold ${Math.floor(28*pulse)}px monospace`;
+        cx.fillText(`★ SUPER CRIT! ${this.damage} DMG ★`,W/2,by-20)
+      }else if(this.result==="crit"){
+        cx.fillStyle=P.gn;
+        cx.fillText(`CRITICAL! ${this.damage} DMG`,W/2,by-20)
+      }else if(this.result==="hit"){
+        cx.fillStyle=P.wh;
+        cx.fillText(`${this.damage} DMG`,W/2,by-20)
+      }else{
+        cx.fillStyle=P.rd;
+        cx.fillText(`MISS... ${this.damage} DMG`,W/2,by-20)
+      }
+    }
+
+    cx.restore();
+    cx.textAlign="left";
+
+    // Instrução
+    if(!this.result){
+      cx.fillStyle=P.yl;cx.font="13px monospace";cx.textAlign="center";
+      const blink=Math.sin(frame/8)>0;
+      if(blink) cx.fillText("[Z] ATACAR!",W/2,by+bh+20);
+      cx.textAlign="left"
+    }
+  }
+};
+
+// ════════ SOUL MODE SYSTEM ════════
+const SoulMode={
+  current:"red", // red, blue, green, yellow, purple
+  colors:{red:P.soulRed,blue:P.soulBlue,green:P.soulGreen,yellow:P.soulYellow,purple:P.soulPurple},
+  names:{red:"VERMELHA",blue:"AZUL",green:"VERDE",yellow:"AMARELA",purple:"ROXA"},
+  descriptions:{
+    red:"Livre para mover",
+    blue:"Gravidade ativa",
+    green:"Escudo frontal",
+    yellow:"Pode atirar",
+    purple:"Trilho fixo"
+  },
+  changeTimer:0,
+
+  change(mode){
+    if(this.current===mode)return;
+    this.current=mode;
+    this.changeTimer=60;
+    AU.soulChange();
+    FX.spawnSoulChange(SL.x,SL.y,this.colors[mode]);
+    DL.quick(`Alma ${this.names[mode]}! ${this.descriptions[mode]}`)
+  },
+
+  getColor(){return this.colors[this.current]},
+
+  draw(){
+    if(this.changeTimer>0){
+      this.changeTimer--;
+      cx.fillStyle=this.getColor();
+      cx.globalAlpha=this.changeTimer/60*0.3;
+      cx.beginPath();cx.arc(SL.x,SL.y,30+this.changeTimer/2,0,Math.PI*2);cx.fill();
+      cx.globalAlpha=1
+    }
+  }
+};
+
+// ════════ SOUL ════════
+const SL={
+  x:480,y:235,r:7,speed:2.8,
+  // Blue mode
+  vy:0,gravity:0.3,jumpForce:-6,grounded:false,
+  // Green mode
+  shieldAngle:0,shieldActive:false,
+  // Yellow mode
+  bullets:[],shootCooldown:0,
+  // Purple mode
+  railX:480,railDir:0,
+
+  reset(){
+    this.x=BT.bx+BT.bw/2;this.y=BT.by+BT.bh/2;
+    this.vy=0;this.grounded=false;this.shieldAngle=0;
+    this.bullets=[];this.shootCooldown=0;
+    SoulMode.current="red"
+  },
+
+  update(){
+    const mode=SoulMode.current;
+
+    if(mode==="red"){
+      // Livre para mover em qualquer direção
+      if(K.l)this.x-=this.speed;
+      if(K.r)this.x+=this.speed;
+      if(K.u)this.y-=this.speed;
+      if(K.d)this.y+=this.speed;
+    }
+    else if(mode==="blue"){
+      // Gravidade + pulo
+      if(K.l)this.x-=this.speed;
+      if(K.r)this.x+=this.speed;
+      this.vy+=this.gravity;
+      this.y+=this.vy;
+      // Chão da battle box
+      if(this.y>=BT.by+BT.bh-this.r){
+        this.y=BT.by+BT.bh-this.r;
+        this.vy=0;this.grounded=true;
+      }else{this.grounded=false}
+      if(K.u&&this.grounded){this.vy=this.jumpForce;this.grounded=false;AU.sel()}
+    }
+    else if(mode==="green"){
+      // Escudo que rotaciona, mas não se move
+      if(K.l)this.shieldAngle-=0.08;
+      if(K.r)this.shieldAngle+=0.08;
+      if(K.u)this.shieldAngle-=0.08;
+      if(K.d)this.shieldAngle+=0.08;
+    }
+    else if(mode==="yellow"){
+      // Move + atira
+      if(K.l)this.x-=this.speed;
+      if(K.r)this.x+=this.speed;
+      if(K.u)this.y-=this.speed;
+      if(K.d)this.y+=this.speed;
+      // Tiro
+      if(this.shootCooldown>0)this.shootCooldown--;
+      if(K.z&&this.shootCooldown<=0){
+        this.bullets.push({x:this.x,y:this.y-10,vy:-5,r:3});
+        this.shootCooldown=15;AU.sel()
+      }
+      // Update bullets
+      for(let i=this.bullets.length-1;i>=0;i--){
+        this.bullets[i].y+=this.bullets[i].vy;
+        if(this.bullets[i].y<BT.by)this.bullets.splice(i,1)
+      }
+    }
+    else if(mode==="purple"){
+      // Preso em trilho vertical
+      if(K.u)this.y-=this.speed;
+      if(K.d)this.y+=this.speed;
+      // x fixo
+      this.x=this.railX;
+    }
+
+    // Clamp dentro da battle box
+    this.x=clamp(this.x,BT.bx+this.r,BT.bx+BT.bw-this.r);
+    this.y=clamp(this.y,BT.by+this.r,BT.by+BT.bh-this.r);
+  },
+
+  checkBulletCollision(bullet){
+    if(SoulMode.current==="green"){
+      // Shield blocks bullets in front
+      const dx=bullet.x-this.x;
+      const dy=bullet.y-this.y;
+      const angle=Math.atan2(dy,dx);
+      const diff=Math.abs(angle-this.shieldAngle);
+      if(diff<0.8&&Math.hypot(dx,dy)<25){
+        return "blocked"
+      }
+    }
+    if(Math.hypot(SL.x-bullet.x,SL.y-bullet.y)<SL.r+bullet.r){
+      return "hit"
+    }
+    return "none"
+  },
+
+  draw(){
+    const mode=SoulMode.current;
+    const color=SoulMode.getColor();
+    const p=1+Math.sin(frame/7)*.12;
+
+    // Glow
+    cx.fillStyle=color.replace(")",",0.15)").replace("rgb","rgba");
+    cx.beginPath();cx.arc(this.x,this.y,this.r*2*p,0,Math.PI*2);cx.fill();
+
+    // Heart
+    cx.fillStyle=color;
+    cx.save();cx.translate(this.x,this.y);cx.rotate(Math.PI/4);
+    cx.fillRect(-this.r/2,-this.r/2,this.r,this.r);cx.restore();
+
+    // Shine
+    cx.fillStyle="rgba(255,255,255,.35)";
+    cx.fillRect(this.x-this.r/3,this.y-this.r/2.5,this.r/3,this.r/3);
+
+    // Mode specific visuals
+    if(mode==="green"){
+      // Shield arc
+      cx.strokeStyle=P.soulGreen;cx.lineWidth=4;
+      cx.beginPath();
+      cx.arc(this.x,this.y,20,this.shieldAngle-0.6,this.shieldAngle+0.6);
+      cx.stroke();
+      cx.lineWidth=2
+    }
+    if(mode==="yellow"){
+      // Yellow bullets
+      cx.fillStyle=P.soulYellow;
+      for(const b of this.bullets){
+        cx.fillRect(b.x-b.r,b.y-b.r,b.r*2,b.r*2)
+      }
+    }
+    if(mode==="purple"){
+      // Rail line
+      cx.strokeStyle="rgba(170,34,255,.3)";cx.lineWidth=3;
+      cx.beginPath();cx.moveTo(this.railX,BT.by);cx.lineTo(this.railX,BT.by+BT.bh);cx.stroke();
+      cx.lineWidth=2
+    }
+    if(mode==="blue"){
+      // Gravity indicator
+      cx.fillStyle="rgba(34,68,255,.2)";
+      cx.fillRect(BT.bx,BT.by+BT.bh-4,BT.bw,4)
+    }
+
+    SoulMode.draw()
+  }
+};
 
 // ════════ DIALOGUE ════════
 const DL={
-  on:false,sp:"",ls:[],i:0,shown:"",ci:0,
-  qm:"",qt:0,cb:null,
-  start(sp,ls,cb=null){this.on=true;this.sp=sp;this.ls=ls;this.i=0;this.shown="";this.ci=0;this.cb=cb;state="dialogue"},
-  quick(m){this.qm=m;this.qt=180},
-  next(){
-    if(!this.on)return;
-    if(this.ci<this.ls[this.i].length){this.shown=this.ls[this.i];this.ci=this.ls[this.i].length;return}
-    this.i++;
-    if(this.i>=this.ls.length){this.on=false;state=prevState||"world";if(this.cb)this.cb();return}
-    this.shown="";this.ci=0
-  },
-  update(){
-    if(this.qt>0)this.qt--;
-    if(!this.on)return;
-    const c=this.ls[this.i]||"";
-    if(this.ci<c.length&&frame%2===0){this.shown+=c[this.ci];if(c[this.ci]!==" ")AU.txt();this.ci++}
-  },
+  on:false,sp:"",ls:[],i:0,shown:"",ci:0,qm:"",qt:0,cb:null,
+  start(sp,ls,cb=null){this.on=true;this.sp=sp;this.ls=ls;this.i=0;this.shown="";this.ci=0;this.cb=cb;prevState=state;state="dialogue"},
+  quick(m){this.qm=m;this.qt=160},
+  next(){if(!this.on)return;if(this.ci<this.ls[this.i].length){this.shown=this.ls[this.i];this.ci=this.ls[this.i].length;return}this.i++;if(this.i>=this.ls.length){this.on=false;state=prevState||"world";if(this.cb)this.cb();return}this.shown="";this.ci=0},
+  update(){if(this.qt>0)this.qt--;if(!this.on)return;const c=this.ls[this.i]||"";if(this.ci<c.length&&frame%2===0){this.shown+=c[this.ci];if(c[this.ci]!==" ")AU.txt();this.ci++}},
   draw(){
-    if(this.qt>0){
-      const a=Math.min(1,this.qt/20);
-      cx.save();cx.globalAlpha=a;
-      box(140,14,680,40,"rgba(0,0,0,.85)",P.cy);
-      cx.fillStyle=P.wh;cx.font="15px monospace";cx.textAlign="center";
-      cx.fillText(this.qm,W/2,40);cx.restore();cx.textAlign="left"
-    }
+    if(this.qt>0){const a=Math.min(1,this.qt/20);cx.save();cx.globalAlpha=a;box(140,10,680,40,"rgba(0,0,0,.85)",P.cy);cx.fillStyle=P.wh;cx.font="14px monospace";cx.textAlign="center";cx.fillText(this.qm,W/2,35);cx.restore();cx.textAlign="left"}
     if(!this.on)return;
     box(30,H-150,W-60,130,"#000",P.wh,3);
-    if(this.sp){cx.fillStyle=P.yl;cx.font="bold 16px monospace";cx.fillText(this.sp,50,H-125)}
-    cx.fillStyle=P.wh;cx.font="16px monospace";
-    wrapT(this.shown,50,H-100,W-120,22);
-    if(this.ci>=(this.ls[this.i]||"").length&&Math.floor(frame/25)%2===0){
-      cx.fillStyle=P.yl;cx.font="14px monospace";cx.textAlign="right";
-      cx.fillText("▼",W-50,H-30);cx.textAlign="left"
-    }
+    if(this.sp){cx.fillStyle=P.yl;cx.font="bold 15px monospace";cx.fillText(this.sp,50,H-125)}
+    cx.fillStyle=P.wh;cx.font="16px monospace";wrapT(this.shown,50,H-100,W-120,22);
+    if(this.ci>=(this.ls[this.i]||"").length&&Math.floor(frame/25)%2===0){cx.fillStyle=P.yl;cx.font="14px monospace";cx.textAlign="right";cx.fillText("▼",W-50,H-30);cx.textAlign="left"}
   }
 };
 
-// ════════ ENDINGS TRACKER ════════
-function getEnding(){
-  const d=SV.d;
-  const allMercy=d.mercies>=4&&d.kills===0;
-  const allKill=d.kills>=4&&d.mercies===0;
-  const mixed=!allMercy&&!allKill;
-  const noAttackFinal=!d.attackedFinal;
-  const talkedAll=d.talks>=15;
-
-  if(allMercy&&noAttackFinal&&talkedAll) return "true_pacifist";
-  if(allMercy&&noAttackFinal) return "pacifist";
-  if(allMercy) return "good";
-  if(allKill) return "genocide";
-  if(d.kills>=3) return "bad";
-  if(mixed&&d.mercies>d.kills) return "neutral_good";
-  return "neutral";
-}
-
-// ════════ MAP SYSTEM ════════
-// Rooms no estilo grid/tile
-const TILE=32;
-const ROOM_W=30; // tiles
-const ROOM_H=17; // tiles
+// ════════ MAP ════════
+const TILE=32,RW=30,RH=17;
 
 function createRoom(phase){
-  const room={tiles:[],npcs:[],saves:[],door:null,items:[],triggers:[]};
-  
-  // Base: bordas são parede, interior é chão
-  for(let y=0;y<ROOM_H;y++){
-    room.tiles[y]=[];
-    for(let x=0;x<ROOM_W;x++){
-      if(y===0||y===ROOM_H-1||x===0||x===ROOM_W-1)
-        room.tiles[y][x]=1; // parede
-      else
-        room.tiles[y][x]=0; // chão
-    }
-  }
-
-  // Detalhes por fase
+  const room={tiles:[],npcs:[],saves:[],door:null,items:[]};
+  for(let y=0;y<RH;y++){room.tiles[y]=[];for(let x=0;x<RW;x++){room.tiles[y][x]=(y===0||y===RH-1||x===0||x===RW-1)?1:0}}
   if(phase===0){
-    // Sala digital - pilares de tela
-    for(let y=3;y<7;y++){room.tiles[y][5]=1;room.tiles[y][10]=1;room.tiles[y][15]=1;room.tiles[y][20]=1;room.tiles[y][25]=1}
-    // Mesa
+    for(let y=3;y<7;y++){[5,10,15,20,25].forEach(x=>{room.tiles[y][x]=1})}
     for(let x=12;x<18;x++)room.tiles[10][x]=2;
     room.npcs.push({type:"lucas",x:8,y:8,talked:false});
     room.saves.push({x:4,y:12,preBoss:false,used:false});
     room.saves.push({x:22,y:8,preBoss:true,used:false});
-    room.door={x:28,y:8};
-    room.items.push({x:14,y:5,type:"heal",taken:false});
-    room.triggers.push({x:2,y:8,id:"intro_"+phase,done:false});
-  }
-  else if(phase===1){
-    // Sala caótica - blocos aleatórios
+    room.door={x:28,y:8};room.items.push({x:14,y:5,type:"heal",taken:false})
+  }else if(phase===1){
     [[4,3],[7,5],[12,4],[18,6],[23,3],[8,10],[16,11],[24,10]].forEach(([x,y])=>{room.tiles[y][x]=1});
     room.npcs.push({type:"lucas",x:13,y:7,talked:false});
     room.saves.push({x:3,y:14,preBoss:false,used:false});
     room.saves.push({x:24,y:6,preBoss:true,used:false});
-    room.door={x:28,y:8};
-    room.items.push({x:20,y:12,type:"heal",taken:false});
-  }
-  else if(phase===2){
-    // Sala vazia - poucos obstáculos, muito espaço
+    room.door={x:28,y:8};room.items.push({x:20,y:12,type:"heal",taken:false})
+  }else if(phase===2){
     for(let x=8;x<22;x++){room.tiles[5][x]=1;room.tiles[11][x]=1}
-    room.tiles[5][14]=0;room.tiles[5][15]=0; // passagem
-    room.tiles[11][14]=0;room.tiles[11][15]=0;
+    room.tiles[5][14]=0;room.tiles[5][15]=0;room.tiles[11][14]=0;room.tiles[11][15]=0;
     room.npcs.push({type:"lucas",x:14,y:8,talked:false});
     room.saves.push({x:3,y:8,preBoss:false,used:false});
     room.saves.push({x:25,y:8,preBoss:true,used:false});
-    room.door={x:28,y:8};
-  }
-  else{
-    // Lab final - grid tech
+    room.door={x:28,y:8}
+  }else{
     for(let y=3;y<6;y++)for(let x=3;x<8;x++)room.tiles[y][x]=2;
     for(let y=3;y<6;y++)for(let x=22;x<27;x++)room.tiles[y][x]=2;
     for(let y=10;y<14;y++){room.tiles[y][10]=1;room.tiles[y][19]=1}
     room.npcs.push({type:"lucas",x:14,y:4,talked:false});
     room.saves.push({x:3,y:14,preBoss:false,used:false});
     room.saves.push({x:14,y:12,preBoss:true,used:false});
-    room.door={x:14,y:2};
+    room.door={x:14,y:2}
   }
-
-  return room;
+  return room
 }
 
 // ════════ WORLD ════════
-let prevState="world";
 const WR={
   phase:0,room:null,
-  camX:0,camY:0,
-
   init(phase){
-    this.phase=phase;
-    this.room=createRoom(phase);
+    this.phase=phase;this.room=createRoom(phase);
     state="world";prevState="world";
-    PL.x=3*TILE;PL.y=8*TILE;PL.dir=1;
-    PL.hp=SV.d.hp||PL.maxHp;
-    const musics=["world1","world2","world3","worldF"];
-    AU.playM(musics[Math.min(phase,3)]);
-    DL.quick(["Fase 1: Vício Digital","Fase 2: Desinformação","Fase 3: Isolamento Social","Fase Final: Lucas"][phase]);
+    PL.x=3*TILE;PL.y=8*TILE;PL.hp=SV.d.hp||PL.maxHp;
+    AU.playM(["world1","world2","world3","worldF"][Math.min(phase,3)]);
+    DL.quick(["Fase 1: Vício Digital","Fase 2: Desinformação","Fase 3: Isolamento Social","Fase Final: Lucas"][phase])
   },
-
-  getTile(tx,ty){
-    if(tx<0||tx>=ROOM_W||ty<0||ty>=ROOM_H)return 1;
-    return this.room.tiles[ty][tx];
-  },
-
+  getTile(tx,ty){if(tx<0||tx>=RW||ty<0||ty>=RH)return 1;return this.room.tiles[ty][tx]},
   update(){
-    if(state!=="world")return;
-    PL.update();
-
-    const ptx=Math.floor((PL.x+12)/TILE);
-    const pty=Math.floor((PL.y+12)/TILE);
-
-    // NPC interaction
+    if(state!=="world")return;PL.update();
+    const ptx=Math.floor((PL.x+12)/TILE),pty=Math.floor((PL.y+12)/TILE);
     for(const n of this.room.npcs){
-      if(!n.talked&&Math.abs(ptx-n.x)<=1&&Math.abs(pty-n.y)<=1&&K.a){
-        K.a=0;n.talked=true;
-        prevState="world";
-        this.talkLucas();
-      }
+      if(!n.talked&&Math.abs(ptx-n.x)<=1&&Math.abs(pty-n.y)<=1&&K.a){K.a=0;n.talked=true;prevState="world";this.talkLucas()}
     }
-
-    // Save
     for(const s of this.room.saves){
       if(!s.used&&ptx===s.x&&pty===s.y){
         s.used=true;
-        if(s.preBoss){
-          SV.d.hp=PL.maxHp;PL.hp=PL.maxHp;
-          SV.d.preBoss=true;SV.save();
-          AU.sv();DL.quick("💾 Save pré-boss! Vida restaurada!")
-        }else{
-          SV.d.hp=PL.hp;SV.save();AU.sv();DL.quick("💾 Progresso salvo.")
-        }
+        if(s.preBoss){SV.d.hp=PL.maxHp;PL.hp=PL.maxHp;SV.d.preBoss=true;SV.save();AU.sv();DL.quick("💾 Save pré-boss! Vida restaurada!");FX.spawnHeal(PL.x,PL.y)}
+        else{SV.d.hp=PL.hp;SV.save();AU.sv();DL.quick("💾 Progresso salvo.")}
       }
     }
-
-    // Items
-    for(const it of this.room.items||[]){
-      if(!it.taken&&ptx===it.x&&pty===it.y){
-        it.taken=true;
-        if(it.type==="heal"){PL.hp=Math.min(PL.hp+5,PL.maxHp);DL.quick("❤️ +5 HP!")}
-      }
-    }
-
-    // Door
-    if(this.room.door&&ptx===this.room.door.x&&pty===this.room.door.y){
-      BT.start(this.phase);
-    }
+    for(const it of this.room.items||[]){if(!it.taken&&ptx===it.x&&pty===it.y){it.taken=true;if(it.type==="heal"){PL.hp=Math.min(PL.hp+5,PL.maxHp);DL.quick("❤️ +5 HP!");FX.spawnHeal(PL.x,PL.y)}}}
+    if(this.room.door&&ptx===this.room.door.x&&pty===this.room.door.y){BT.start(this.phase)}
   },
-
   talkLucas(){
-    SV.d.lucas[this.phase]=true;
-    SV.d.talks++;
+    SV.d.lucas[this.phase]=true;SV.d.talks++;
     const d=[
-      [
-        "Você veio...",
-        "Esse primeiro guardião era como eu há meses.",
-        "Preso. Perdido. Engolido pela tela.",
-        "Ele não é mau. Só está viciado.",
-        "Se puder... tenta conversar antes de atacar.",
-        "Às vezes uma palavra vale mais que um golpe."
-      ],[
-        "Esse próximo é perigoso de outro jeito.",
-        "Ele não te ataca com força. Ataca com confusão.",
-        "Espalha mentiras como se fossem verdades.",
-        "Eu já fui assim. Compartilhava tudo sem pensar.",
-        "Mostra pra ele que a verdade ainda importa."
-      ],[
-        "...",
-        "Esse é o que mais dói em mim.",
-        "Porque eu causei isso. Em mim e nos outros.",
-        "Ele se trancou. Construiu muros.",
-        "Não é raiva o que ele sente. É medo.",
-        "Medo de ser esquecido.",
-        "Se puder... não desista dele."
-      ],[
-        "Então você está aqui.",
-        "Você viu o que eu criei.",
-        "Vício. Mentira. Solidão.",
-        "Tudo começou comigo.",
-        "Se você ainda acredita que eu posso voltar...",
-        "...me prove.",
-        "Me convença de que as pessoas ainda importam.",
-        "Que EU ainda importo mais que qualquer código."
-      ]
+      ["Esse guardião era como eu meses atrás.","Preso na tela. Sem perceber.","Se puder, conversa com ele antes de atacar.","Às vezes uma palavra vale mais."],
+      ["Esse próximo é perigoso de outro jeito.","Ataca com confusão, não com força.","Mostra pra ele que a verdade importa."],
+      ["Esse é o que mais dói em mim.","Ele se trancou. Construiu muros.","Não desista dele. Por favor."],
+      ["Eu vi tudo que você fez.","Se ainda acredita que eu posso voltar...","me prove.","Me convença de que as pessoas ainda importam."]
     ];
     DL.start("Lucas",d[Math.min(this.phase,3)])
   },
-
   draw(){
-    // Background
-    const bgs=[P.bg1,P.bg2,P.bg3,P.bg4];
+    const bgs=[P.bg1,"#1a0505","#0a0c1f","#031307"];
     cx.fillStyle=bgs[Math.min(this.phase,3)];cx.fillRect(0,0,W,H);
-
     const room=this.room;
-    const ox=0,oy=0; // simple no-scroll for now
-
-    // Tiles
-    const wallColors=[["#1a2848","#243868"],["#3a1818","#4a2020"],["#181830","#202048"],["#0a200a","#103010"]];
-    const floorColors=[["#0d1828","#101e30"],["#200808","#2a0e0e"],["#0c0c20","#101028"],["#051005","#081808"]];
-    const wc=wallColors[Math.min(this.phase,3)];
-    const fc=floorColors[Math.min(this.phase,3)];
-
-    for(let y=0;y<ROOM_H;y++){
-      for(let x=0;x<ROOM_W;x++){
-        const t=room.tiles[y][x];
-        const dx=ox+x*TILE,dy=oy+y*TILE;
-        if(t===1){
-          cx.fillStyle=wc[(x+y)%2];cx.fillRect(dx,dy,TILE,TILE);
-          cx.fillStyle="rgba(255,255,255,.04)";cx.fillRect(dx,dy,TILE,2)
-        }else if(t===2){
-          cx.fillStyle="#1a3030";cx.fillRect(dx,dy,TILE,TILE);
-          cx.strokeStyle="rgba(0,255,100,.15)";cx.strokeRect(dx+2,dy+2,TILE-4,TILE-4)
-        }else{
-          cx.fillStyle=fc[(x+y)%2];cx.fillRect(dx,dy,TILE,TILE)
-        }
-      }
+    const wc=[["#1a2848","#243868"],["#3a1818","#4a2020"],["#181830","#202048"],["#0a200a","#103010"]];
+    const fc=[["#0d1828","#101e30"],["#200808","#2a0e0e"],["#0c0c20","#101028"],["#051005","#081808"]];
+    const w=wc[Math.min(this.phase,3)],f=fc[Math.min(this.phase,3)];
+    for(let y=0;y<RH;y++)for(let x=0;x<RW;x++){
+      const t=room.tiles[y][x],dx=x*TILE,dy=y*TILE;
+      if(t===1){cx.fillStyle=w[(x+y)%2];cx.fillRect(dx,dy,TILE,TILE);cx.fillStyle="rgba(255,255,255,.04)";cx.fillRect(dx,dy,TILE,2)}
+      else if(t===2){cx.fillStyle="#1a3030";cx.fillRect(dx,dy,TILE,TILE);cx.strokeStyle="rgba(0,255,100,.15)";cx.strokeRect(dx+2,dy+2,TILE-4,TILE-4)}
+      else{cx.fillStyle=f[(x+y)%2];cx.fillRect(dx,dy,TILE,TILE)}
     }
-
-    // Phase-specific decorations
-    if(this.phase===0){
-      // Screen glows on pillars
-      for(const px2 of [5,10,15,20,25]){
-        cx.fillStyle="rgba(0,200,255,.12)";
-        cx.fillRect(px2*TILE+4,4*TILE,TILE-8,2*TILE)
-      }
-    }
-    if(this.phase===3){
-      // Grid lines
-      cx.strokeStyle="rgba(0,255,100,.06)";cx.lineWidth=1;
-      for(let x=0;x<W;x+=TILE){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,H);cx.stroke()}
-      for(let y=0;y<H;y+=TILE){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke()}
-    }
-
-    // Save points
-    for(const s of room.saves){
-      const sx=ox+s.x*TILE+TILE/2,sy=ox+s.y*TILE+TILE/2;
-      const pulse=1+Math.sin(frame/10)*.08;
-      cx.save();cx.translate(sx,sy);cx.scale(pulse,pulse);
-      if(s.used){cx.fillStyle="#555";cx.fillRect(-5,-12,10,14)}
-      else{cx.fillStyle=s.preBoss?P.or:P.yl;cx.fillRect(-5,-12,10,14)}
-      cx.restore();
-      cx.fillStyle=P.wh;cx.font="9px monospace";cx.textAlign="center";
-      cx.fillText(s.used?"✓":(s.preBoss?"★BOSS":"★"),sx,sy-16);cx.textAlign="left"
-    }
-
-    // Items
-    for(const it of room.items||[]){
-      if(it.taken)continue;
-      cx.fillStyle=P.gn;
-      cx.fillRect(ox+it.x*TILE+10,oy+it.y*TILE+10,12,12);
-      cx.fillStyle=P.wh;cx.font="8px monospace";cx.textAlign="center";
-      cx.fillText("HP",ox+it.x*TILE+16,oy+it.y*TILE+8);cx.textAlign="left"
-    }
-
-    // NPCs
-    for(const n of room.npcs){
-      const nx=ox+n.x*TILE-8,ny=oy+n.y*TILE-16;
-      px(LUCAS_NPC,nx,ny,3,LUCAS_NPC_PAL);
-      if(!n.talked&&Math.abs(Math.floor((PL.x+12)/TILE)-n.x)<=2&&Math.abs(Math.floor((PL.y+12)/TILE)-n.y)<=2){
-        cx.fillStyle=P.cy;cx.font="11px monospace";cx.textAlign="center";
-        cx.fillText("[A] Falar",nx+18,ny-6);cx.textAlign="left"
-      }
-    }
-
-    // Door
-    if(room.door){
-      const dx=ox+room.door.x*TILE,dy=oy+room.door.y*TILE;
-      cx.fillStyle="#1a0000";cx.fillRect(dx,dy,TILE,TILE);
-      cx.fillStyle=P.rd;cx.fillRect(dx+4,dy+8,24,4);
-      const blink=Math.sin(frame/15)>.3;
-      if(blink){cx.fillStyle=P.wh;cx.font="9px monospace";cx.textAlign="center";
-      cx.fillText("BOSS",dx+16,dy-4);cx.textAlign="left"}
-    }
-
-    // Player
-    PL.draw(ox,oy);
-
-    // HUD
-    this.drawHUD()
-  },
-
-  drawHUD(){
-    box(8,8,180,50,"rgba(0,0,0,.7)",P.wh,1);
-    // HP
-    cx.fillStyle=P.wh;cx.font="12px monospace";cx.fillText("HP",14,28);
-    cx.fillStyle="#333";cx.fillRect(34,17,120,14);
-    cx.fillStyle=PL.hp/PL.maxHp>.5?P.gn:PL.hp/PL.maxHp>.25?P.or:P.rd;
-    cx.fillRect(36,19,(PL.hp/PL.maxHp)*116,10);
-    cx.fillStyle=P.wh;cx.font="11px monospace";cx.fillText(`${PL.hp}/${PL.maxHp}`,160,28);
-    // LV
-    cx.fillText(`LV ${SV.d.lv}`,14,48);
-    // Phase
-    cx.fillStyle="rgba(255,255,255,.3)";cx.font="10px monospace";
-    const names=["Vício Digital","Desinformação","Isolamento Social","Lucas"];
-    cx.textAlign="right";cx.fillText(names[Math.min(this.phase,3)],W-10,20);cx.textAlign="left";
-    // Controls
-    cx.fillStyle="rgba(255,255,255,.2)";cx.font="9px monospace";
-    cx.fillText("Setas: mover | A: interagir",10,H-8)
+    if(this.phase===3){cx.strokeStyle="rgba(0,255,100,.06)";cx.lineWidth=1;for(let x=0;x<W;x+=TILE){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,H);cx.stroke()}for(let y=0;y<H;y+=TILE){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke()}}
+    for(const s of room.saves){const sx=s.x*TILE+TILE/2,sy=s.y*TILE+TILE/2;const pulse=1+Math.sin(frame/10)*.08;cx.save();cx.translate(sx,sy);cx.scale(pulse,pulse);cx.fillStyle=s.used?"#555":(s.preBoss?P.or:P.yl);cx.fillRect(-5,-12,10,14);cx.restore();cx.fillStyle=P.wh;cx.font="9px monospace";cx.textAlign="center";cx.fillText(s.used?"✓":(s.preBoss?"★BOSS":"★"),sx,sy-16);cx.textAlign="left"}
+    for(const it of room.items||[]){if(it.taken)continue;cx.fillStyle=P.gn;cx.fillRect(it.x*TILE+10,it.y*TILE+10,12,12)}
+    for(const n of room.npcs){const nx=n.x*TILE-8,ny=n.y*TILE-16;px(LUCAS_NPC,nx,ny,3,LUCAS_P);if(!n.talked&&Math.abs(Math.floor((PL.x+12)/TILE)-n.x)<=2&&Math.abs(Math.floor((PL.y+12)/TILE)-n.y)<=2){cx.fillStyle=P.cy;cx.font="11px monospace";cx.textAlign="center";cx.fillText("[A] Falar",nx+18,ny-6);cx.textAlign="left"}}
+    if(room.door){const dx=room.door.x*TILE,dy=room.door.y*TILE;cx.fillStyle="#1a0000";cx.fillRect(dx,dy,TILE,TILE);cx.fillStyle=P.rd;cx.fillRect(dx+4,dy+8,24,4);if(Math.sin(frame/15)>.3){cx.fillStyle=P.wh;cx.font="9px monospace";cx.textAlign="center";cx.fillText("BOSS",dx+16,dy-4);cx.textAlign="left"}}
+    PL.draw();
+    box(8,8,180,50,"rgba(0,0,0,.7)",P.wh,1);cx.fillStyle=P.wh;cx.font="12px monospace";cx.fillText("HP",14,28);cx.fillStyle="#333";cx.fillRect(34,17,120,14);cx.fillStyle=PL.hp/PL.maxHp>.5?P.gn:PL.hp/PL.maxHp>.25?P.or:P.rd;cx.fillRect(36,19,(PL.hp/PL.maxHp)*116,10);cx.fillStyle=P.wh;cx.font="11px monospace";cx.fillText(`${PL.hp}/${PL.maxHp}`,160,28);cx.fillText(`LV ${SV.d.lv}`,14,48)
   }
 };
 
 // ════════ PLAYER WORLD ════════
 const PL={
-  x:3*TILE,y:8*TILE,
-  hp:20,maxHp:20,
-  dir:1, // 0=up 1=right 2=down 3=left
-  moving:false,
-  moveTimer:0,
-  speed:2.5,
-
+  x:3*TILE,y:8*TILE,hp:20,maxHp:20,dir:1,moving:false,moveT:0,speed:2.5,
   update(){
-    if(state!=="world")return;
-    let dx=0,dy=0;
-    if(K.l){dx=-this.speed;this.dir=3}
-    if(K.r){dx=this.speed;this.dir=1}
-    if(K.u){dy=-this.speed;this.dir=0}
-    if(K.d){dy=this.speed;this.dir=2}
-    this.moving=dx!==0||dy!==0;
-    if(this.moving)this.moveTimer+=0.12;
-
-    // Collision check
+    if(state!=="world")return;let dx=0,dy=0;
+    if(K.l){dx=-this.speed;this.dir=3}if(K.r){dx=this.speed;this.dir=1}
+    if(K.u){dy=-this.speed;this.dir=0}if(K.d){dy=this.speed;this.dir=2}
+    this.moving=dx!==0||dy!==0;if(this.moving)this.moveT+=0.12;
     const nx=this.x+dx,ny=this.y+dy;
-    const tx1=Math.floor(nx/TILE),ty1=Math.floor(ny/TILE);
-    const tx2=Math.floor((nx+20)/TILE),ty2=Math.floor((ny+24)/TILE);
-
     let blocked=false;
-    for(let cy2=ty1;cy2<=ty2;cy2++)
-      for(let cx2=tx1;cx2<=tx2;cx2++)
-        if(WR.getTile(cx2,cy2)===1) blocked=true;
-
+    const tx1=Math.floor(nx/TILE),ty1=Math.floor(ny/TILE),tx2=Math.floor((nx+20)/TILE),ty2=Math.floor((ny+24)/TILE);
+    for(let cy2=ty1;cy2<=ty2;cy2++)for(let cx2=tx1;cx2<=tx2;cx2++)if(WR.getTile(cx2,cy2)===1)blocked=true;
     if(!blocked){this.x=nx;this.y=ny}
-    this.x=clamp(this.x,TILE,ROOM_W*TILE-TILE-24);
-    this.y=clamp(this.y,TILE,ROOM_H*TILE-TILE-28)
+    this.x=clamp(this.x,TILE,RW*TILE-TILE-24);this.y=clamp(this.y,TILE,RH*TILE-TILE-28)
   },
-
-  draw(ox,oy){
-    const sprite=this.moving?(Math.floor(this.moveTimer)%2===0?SP_W1:SP_W2):SP_IDLE;
-    const flip=this.dir===3;
-    px(sprite,ox+this.x-8,oy+this.y-24,3,SP_PAL,flip)
+  draw(){
+    const sprite=this.moving?(Math.floor(this.moveT)%2===0?SP_W1:SP_W2):SP_IDLE;
+    px(sprite,this.x-8,this.y-24,3,SP_PAL,this.dir===3)
   }
 };
 
 // ════════ BATTLE ════════
 const BT={
   on:false,boss:null,
-  mode:"player", // player, enemy, anim
-  bullets:[],
-  turnT:0,turnDur:200,
-  sel:0,
+  mode:"player", // player, crit, enemy, anim
+  bullets:[],turnT:0,turnDur:200,sel:0,
   actions:["ATACAR","FALAR","AGIR","MERCY"],
-  // attack animation
-  atkAnim:0,
   dmgThisBoss:false,
-
   bx:250,by:100,bw:460,bh:270,
+  // Damage numbers
+  dmgNums:[],
 
   start(phase){
     state="battle";prevState="battle";
-    this.on=true;this.bullets=[];this.mode="player";
-    this.sel=0;this.dmgThisBoss=false;
-    if(phase===0) this.boss=new Boss1();
-    else if(phase===1) this.boss=new Boss2();
-    else if(phase===2) this.boss=new Boss3();
+    this.on=true;this.bullets=[];this.mode="player";this.sel=0;this.dmgThisBoss=false;this.dmgNums=[];
+    if(phase===0)this.boss=new Boss1();
+    else if(phase===1)this.boss=new Boss2();
+    else if(phase===2)this.boss=new Boss3();
     else this.boss=new BossF();
-    SL.x=this.bx+this.bw/2;SL.y=this.by+this.bh/2;
-    const m=phase===3?"final":"battle";
-    AU.playM(m)
+    SL.reset();
+    AU.playM(phase===3?"final":"battle")
   },
 
-  end(){
-    this.on=false;state="world";this.bullets=[];
-    AU.stopM();SV.save()
+  end(){this.on=false;state="world";this.bullets=[];AU.stopM();SV.save()},
+
+  addDmgNum(x,y,dmg,type){
+    this.dmgNums.push({x,y,dmg,type,t:60,vy:-2})
   },
 
-  enemyTurn(){this.mode="enemy";this.turnT=this.turnDur},
+  enemyTurn(){
+    this.mode="enemy";this.turnT=this.turnDur;
+    SL.x=this.bx+this.bw/2;SL.y=this.by+this.bh/2
+  },
 
   update(){
     if(!this.on||state!=="battle")return;
+
+    // Update damage numbers
+    for(let i=this.dmgNums.length-1;i>=0;i--){
+      this.dmgNums[i].y+=this.dmgNums[i].vy;
+      this.dmgNums[i].t--;
+      if(this.dmgNums[i].t<=0)this.dmgNums.splice(i,1)
+    }
+
+    if(this.mode==="crit"){
+      CritBar.update();
+      return
+    }
 
     if(this.mode==="enemy"){
       this.turnT--;
@@ -751,13 +723,38 @@ const BT={
 
       for(let i=this.bullets.length-1;i>=0;i--){
         const b=this.bullets[i];
-        b.x+=b.vx;b.y+=b.vy;b.t--;
-        if(Math.hypot(SL.x-b.x,SL.y-b.y)<SL.r+b.r){
-          PL.hp=Math.max(0,PL.hp-1);
-          AU.dmg();this.dmgThisBoss=true;
+        b.x+=b.vx;b.y+=b.vy;
+        if(b.accel){b.vx+=b.ax||0;b.vy+=b.ay||0}
+        if(b.wave){b.x+=Math.sin(b.wt)*b.wamp;b.wt+=b.wspd}
+        if(b.homing){
+          const dx=SL.x-b.x,dy=SL.y-b.y;
+          const d=Math.hypot(dx,dy)||1;
+          b.vx+=(dx/d)*0.05;b.vy+=(dy/d)*0.05
+        }
+        b.t--;
+
+        const result=SL.checkBulletCollision(b);
+        if(result==="blocked"){
+          FX.spawn(b.x,b.y,5,P.soulGreen,2,15);
           this.bullets.splice(i,1);continue
         }
-        if(b.t<=0||b.x<this.bx-20||b.x>this.bx+this.bw+20||b.y<this.by-20||b.y>this.by+this.bh+20)
+        if(result==="hit"){
+          PL.hp=Math.max(0,PL.hp-1);AU.dmg();this.dmgThisBoss=true;
+          FX.spawn(SL.x,SL.y,6,P.rd,2,15);
+          this.bullets.splice(i,1);continue
+        }
+
+        // Soul yellow bullets hitting enemy bullets
+        if(SoulMode.current==="yellow"){
+          for(let j=SL.bullets.length-1;j>=0;j--){
+            if(Math.hypot(SL.bullets[j].x-b.x,SL.bullets[j].y-b.y)<b.r+SL.bullets[j].r){
+              FX.spawn(b.x,b.y,4,P.soulYellow,2,10);
+              this.bullets.splice(i,1);SL.bullets.splice(j,1);break
+            }
+          }
+        }
+
+        if(b.t<=0||b.x<this.bx-30||b.x>this.bx+this.bw+30||b.y<this.by-30||b.y>this.by+this.bh+30)
           this.bullets.splice(i,1)
       }
 
@@ -767,45 +764,64 @@ const BT={
   },
 
   onLose(){
-    AU.die();SV.d.deaths++;
+    AU.die();SV.d.deaths++;FX.spawnDeath(SL.x,SL.y);
     this.on=false;
-    showStory("Você caiu...",
-      ["Mas sua determinação permanece.","O save pré-boss foi carregado."],
+    showStory("Você caiu...",["Mas sua determinação permanece.","O save pré-boss foi carregado."],
       ()=>{PL.hp=PL.maxHp;WR.init(WR.phase)})
   },
 
   doAction(){
-    const a=this.actions[this.sel];
-    AU.sel();
-    if(a==="ATACAR"){this.boss.onAttack();SV.d.kills;if(!this.boss.resolved)this.enemyTurn()}
+    const a=this.actions[this.sel];AU.sel();
+    if(a==="ATACAR"){
+      // Inicia barra de crítico
+      this.mode="crit";
+      CritBar.start(this.boss.bossLv||1)
+    }
     else if(a==="FALAR"){this.boss.onTalk();SV.d.talks++;if(!this.boss.resolved)this.enemyTurn()}
     else if(a==="AGIR"){this.boss.onAct();SV.d.acts++;if(!this.boss.resolved)this.enemyTurn()}
     else{this.boss.onMercy();if(!this.boss.resolved)this.enemyTurn()}
   },
 
+  confirmCrit(){
+    const dmg=CritBar.confirm();
+    if(dmg>0){
+      this.boss.hp=Math.max(0,this.boss.hp-dmg);
+      this.addDmgNum(W/2,120,dmg,CritBar.result);
+      if(this.boss.hp<=0){
+        this.boss.onDeath();
+      }else{
+        // Wait for result animation then enemy turn
+        setTimeout(()=>{
+          if(this.on&&!this.boss.resolved){this.enemyTurn()}
+        },800)
+      }
+    }
+  },
+
   draw(){
     cx.fillStyle="#000";cx.fillRect(0,0,W,H);
 
-    // Boss
-    const bcx=W/2-40,bcy=24;
-    this.boss.drawBoss(bcx,bcy);
+    // Boss shake
+    let sx=0,sy=0;
+    if(CritBar.shakeTimer>0){sx=(Math.random()-.5)*CritBar.shakeIntensity;sy=(Math.random()-.5)*CritBar.shakeIntensity}
+    cx.save();cx.translate(sx,sy);
+    this.boss.drawBoss(W/2-50,30);
+    cx.restore();
 
-    // Boss name
-    cText(this.boss.nm,24,20,P.wh);
+    cText(this.boss.nm,26,20,P.wh);
 
     // Boss HP
-    box(300,this.by-20,360,14,"#111",P.wh,1);
+    box(300,this.by-24,360,16,"#111",P.wh,1);
     const hpp=this.boss.hp/this.boss.mhp;
     cx.fillStyle=hpp>.5?P.gn:hpp>.25?P.or:P.rd;
-    cx.fillRect(302,this.by-18,356*hpp,10);
+    cx.fillRect(302,this.by-22,356*hpp,12);
+    cx.fillStyle=P.wh;cx.font="10px monospace";cx.textAlign="center";
+    cx.fillText(`${this.boss.hp}/${this.boss.mhp}`,480,this.by-12);cx.textAlign="left";
 
     // Trust bar
     if(this.boss.trust!==undefined){
       box(300,this.by-6,360,8,"#111",P.yl,1);
-      cx.fillStyle=P.yl;
-      cx.fillRect(302,this.by-4,356*(this.boss.trust/this.boss.trustReq),4);
-      cx.fillStyle=P.yl;cx.font="10px monospace";cx.textAlign="center";
-      cx.fillText(`Confiança ${Math.round(this.boss.trust/this.boss.trustReq*100)}%`,W/2,this.by+8);cx.textAlign="left"
+      cx.fillStyle=P.yl;cx.fillRect(302,this.by-4,356*(this.boss.trust/this.boss.trustReq),4)
     }
 
     // Battle box
@@ -814,162 +830,146 @@ const BT={
     // Bullets
     for(const b of this.bullets){
       cx.fillStyle=b.c||P.rd;
-      cx.beginPath();cx.arc(b.x,b.y,b.r,0,Math.PI*2);cx.fill()
+      if(b.shape==="rect"){cx.fillRect(b.x-b.r,b.y-b.r,b.r*2,b.r*2)}
+      else if(b.shape==="diamond"){cx.save();cx.translate(b.x,b.y);cx.rotate(Math.PI/4);cx.fillRect(-b.r/2,-b.r/2,b.r,b.r);cx.restore()}
+      else{cx.beginPath();cx.arc(b.x,b.y,b.r,0,Math.PI*2);cx.fill()}
     }
 
     // Soul
-    if(this.mode==="enemy") drawSoul(SL.x,SL.y,SL.r);
+    if(this.mode==="enemy") SL.draw();
+
+    // Critical bar
+    if(this.mode==="crit") CritBar.draw();
+
+    // Damage numbers
+    for(const d of this.dmgNums){
+      cx.globalAlpha=d.t/60;
+      cx.font=d.type==="super"?"bold 28px monospace":d.type==="crit"?"bold 24px monospace":"bold 18px monospace";
+      cx.fillStyle=d.type==="super"?P.yl:d.type==="crit"?P.gn:d.type==="miss"?P.rd:P.wh;
+      cx.textAlign="center";
+      cx.fillText(d.dmg,d.x,d.y);
+      cx.textAlign="left";
+      cx.globalAlpha=1
+    }
+
+    // Action buttons
+    if(this.mode==="player"||this.mode==="crit"){
+      const ay=440;
+      const cols=[P.or,P.cy,P.yl,P.gn];
+      for(let i=0;i<4;i++){
+        const ax=80+i*200;
+        const sel=this.sel===i&&this.mode==="player";
+        box(ax,ay,140,36,sel?cols[i]:"#000",cols[i],2);
+        cx.fillStyle=sel?"#000":cols[i];
+        cx.font="bold 15px monospace";cx.textAlign="center";
+        cx.fillText(this.actions[i],ax+70,ay+24)
+      }
+      cx.textAlign="left"
+    }
 
     if(this.mode==="enemy"){
-      cText("DESVIE!",this.by+this.bh+18,14,P.rd)
-    }
-
-    // Actions
-    const ay=420;
-    const cols=[P.or,P.cy,P.yl,P.gn];
-    for(let i=0;i<4;i++){
-      const ax=80+i*200;
-      const sel=this.sel===i&&this.mode==="player";
-      box(ax,ay,140,40,sel?cols[i]:"#000",cols[i],2);
-      cx.fillStyle=sel?"#000":cols[i];
-      cx.font="bold 16px monospace";cx.textAlign="center";
-      cx.fillText(this.actions[i],ax+70,ay+26);
-    }
-    cx.textAlign="left";
-
-    if(this.mode==="player"){
-      cText("Escolha sua ação",500,16,P.gy)
+      cText("DESVIE!",this.by+this.bh+16,14,P.rd);
+      // Soul mode indicator
+      cx.fillStyle=SoulMode.getColor();cx.font="11px monospace";
+      cx.fillText(`Alma: ${SoulMode.names[SoulMode.current]}`,BT.bx,BT.by+BT.bh+30)
     }
 
     // Player HP
+    const hpx=50,hpy=500;
+    drawSoulMini(hpx,hpy);
     cx.fillStyle=P.wh;cx.font="14px monospace";
-    drawSoul(50,495,6);
-    cx.fillText(`HP ${PL.hp}/${PL.maxHp}`,70,500);
-    cx.fillText(`LV ${SV.d.lv}`,200,500)
+    cx.fillText(`HP ${PL.hp}/${PL.maxHp}`,hpx+15,hpy+5);
+    cx.fillText(`LV ${SV.d.lv}`,hpx+150,hpy+5)
   }
 };
 
-// Soul in battle
-const SL={
-  x:480,y:240,r:7,speed:2.8,
-  update(){
-    if(K.l)this.x-=this.speed;
-    if(K.r)this.x+=this.speed;
-    if(K.u)this.y-=this.speed;
-    if(K.d)this.y+=this.speed;
-    this.x=clamp(this.x,BT.bx+this.r,BT.bx+BT.bw-this.r);
-    this.y=clamp(this.y,BT.by+this.r,BT.by+BT.bh-this.r)
-  }
-};
+function drawSoulMini(x,y){
+  cx.fillStyle=SoulMode.getColor();
+  cx.save();cx.translate(x,y);cx.rotate(Math.PI/4);
+  cx.fillRect(-4,-4,8,8);cx.restore()
+}
 
 // ════════ BOSS CLASSES ════════
 class BossB{
-  constructor(nm,hp){this.nm=nm;this.hp=hp;this.mhp=hp;this.resolved=false;this.tk=0;this.tc=0;this.mc=0;this.ac=0;this.ready=false;this.tick=0}
+  constructor(nm,hp,lv){this.nm=nm;this.hp=hp;this.mhp=hp;this.resolved=false;this.bossLv=lv||1;this.tk=0;this.tc=0;this.mc=0;this.ac=0;this.ready=false;this.tick=0;this.phase=1}
   finish(mercy,title,lines){
     this.resolved=true;
-    if(mercy){SV.d.mercies++;AU.mrc()}else{SV.d.kills++;AU.hit()}
+    if(mercy){SV.d.mercies++;AU.mrc()}else{SV.d.kills++}
     SV.d.bossState[this.nm]={mercy,killed:!mercy};
-    // XP and LV
     SV.d.xp+=mercy?10:20;
     if(SV.d.xp>=SV.d.lv*15){SV.d.lv++;PL.maxHp+=5;PL.hp=PL.maxHp;SV.d.maxHp=PL.maxHp;AU.lvl();DL.quick(`LEVEL UP! LV ${SV.d.lv}`)}
-    SV.d.phase=WR.phase+1;SV.d.hp=PL.hp;
-    BT.end();
-    showStory(title,lines,()=>{
-      if(WR.phase>=3) showEnding();
-      else WR.init(WR.phase+1)
-    })
+    SV.d.phase=WR.phase+1;SV.d.hp=PL.hp;BT.end();
+    showStory(title,lines,()=>{if(WR.phase>=3)showEnding();else WR.init(WR.phase+1)})
   }
+  onDeath(){/* Override */}
 }
 
 class Boss1 extends BossB{
-  constructor(){super("Vício Digital",28)}
-  drawBoss(x,y){px(B1,x,y,3.5,B1P)}
+  constructor(){super("Vício Digital",28,1)}
+  drawBoss(x,y){px(B1,x,y,3.2,B1P)}
   attack(arr){
     this.tick++;
-    if(this.tick%10===0){
-      const a=(Math.random()-.5)*1.2;
-      arr.push({x:480,y:BT.by+10,vx:Math.sin(a)*2.5,vy:1.6+Math.random()*1.2,r:4,c:P.cy,t:130})
+    // Fase 1: tiros simples
+    if(this.hp>this.mhp/2){
+      if(this.tick%12===0){
+        const a=(Math.random()-.5)*1.2;
+        arr.push({x:480,y:BT.by+10,vx:Math.sin(a)*2.5,vy:1.6+Math.random()*1.2,r:4,c:P.cy,t:130})
+      }
+    }
+    // Fase 2: mais rápido + pattern
+    else{
+      if(this.tick%8===0){
+        const a=(Math.random()-.5)*1.6;
+        arr.push({x:480,y:BT.by+10,vx:Math.sin(a)*3,vy:2+Math.random()*1.5,r:4,c:P.cy,t:120})
+      }
+      if(this.tick%30===0){
+        for(let i=0;i<3;i++){
+          arr.push({x:BT.bx+50+i*180,y:BT.by+10,vx:0,vy:2.5,r:5,c:"#00ffff",t:120})
+        }
+      }
     }
   }
-  onAttack(){this.hp-=8;AU.hit();if(this.hp<=0)this.finish(false,"O Fim de Vício Digital",[
-    "Você destruiu o Vício Digital.",
-    "Ele não era um monstro. Era alguém preso numa tela.",
-    "Alguém que esqueceu como era respirar sem notificação.",
-    "A tecnologia não é o inimigo. O excesso é.",
-    "Você aprendeu algo. Mas a que custo?"
-  ])}
-  onTalk(){this.tc++;
-    const l=["Só mais um minuto... já faz horas.","Eu sei que estou preso. Não sei como sair.",
-      "Você fala como se fosse fácil desligar.","...Talvez se alguém me ajudasse."];
-    DL.quick(l[Math.min(this.tc-1,l.length-1)]);
-    if(this.tc>=3)this.ready=true
-  }
+  onDeath(){this.finish(false,"O Fim de Vício Digital",["Você destruiu o Vício Digital.","Ele não era um monstro. Era alguém preso.","A tecnologia não é o inimigo. O excesso é."])}
+  onTalk(){this.tc++;const l=["Só mais um minuto... já faz horas.","Eu sei que estou preso. Não sei como sair.","Você fala como se fosse fácil.","...Talvez se alguém me ajudasse."];DL.quick(l[Math.min(this.tc-1,l.length-1)]);if(this.tc>=3)this.ready=true}
   onAct(){this.ac++;DL.quick("Você descreve como era a vida antes das telas.")}
-  onMercy(){
-    if(!this.ready){DL.quick("Ele ainda não consegue te ouvir.");return}
-    this.mc++;
-    if(this.mc>=2)this.finish(true,"A Redenção de Vício Digital",[
-      "Você não destruiu. Você estendeu a mão.",
-      "Aos poucos, ele desliga a tela. Olha ao redor.",
-      "Lembra do som do vento. Do rosto das pessoas.",
-      "O primeiro passo é sempre o mais difícil.",
-      "Mas alguém acreditou que ele conseguia."
-    ]);
-    else DL.quick("Ele hesita... mas te ouviu.")
-  }
+  onMercy(){if(!this.ready){DL.quick("Ele ainda não consegue te ouvir.");return}this.mc++;if(this.mc>=2)this.finish(true,"A Redenção de Vício Digital",["Você estendeu a mão.","Aos poucos, ele desliga a tela.","Lembra do som do vento. Do rosto das pessoas."]);else DL.quick("Ele hesita... mas te ouviu.")}
 }
 
 class Boss2 extends BossB{
-  constructor(){super("Desinformação",35)}
-  drawBoss(x,y){px(B2,x,y,3.5,B2P)}
+  constructor(){super("Desinformação",35,2)}
+  drawBoss(x,y){px(B2,x,y,3.2,B2P)}
   attack(arr){
     this.tick++;
-    if(this.tick%18===0){
+    // Soul mode changes
+    if(this.tick===30) SoulMode.change("blue");
+    if(this.tick===120) SoulMode.change("red");
+    
+    if(this.tick%16===0){
       for(let i=0;i<5;i++){
         const a=-0.5+i*0.25+Math.PI/2;
         arr.push({x:480,y:BT.by+30,vx:Math.cos(a)*2.2,vy:Math.sin(a)*2.2,r:4,c:P.rd,t:120})
       }
     }
+    // Wave bullets
+    if(this.tick%40===0){
+      arr.push({x:BT.bx+20,y:BT.by+BT.bh/2,vx:2,vy:0,r:5,c:P.or,t:150,wave:true,wt:0,wamp:2,wspd:0.15})
+      arr.push({x:BT.bx+BT.bw-20,y:BT.by+BT.bh/2,vx:-2,vy:0,r:5,c:P.or,t:150,wave:true,wt:0,wamp:2,wspd:0.15})
+    }
   }
-  onAttack(){this.hp-=8;AU.hit();if(this.hp<=0)this.finish(false,"O Fim de Desinformação",[
-    "A Desinformação caiu.",
-    "Mas com ela caíram todas as mentiras que sustentavam alguém.",
-    "Alguém que nunca aprendeu a duvidar.",
-    "Que nunca parou para verificar se era verdade.",
-    "Destruir a mentira não cria verdade automaticamente."
-  ])}
-  onTalk(){this.tc++;
-    const l=["Se todo mundo repete, deve ser verdade, certo?",
-      "Eu nunca quis machucar ninguém. Só compartilhei.",
-      "Mas as palavras têm peso. Eu não pensei nisso.",
-      "Você acha que eu ainda posso mudar o que espalhei?"];
-    DL.quick(l[Math.min(this.tc-1,l.length-1)]);
-    if(this.tc>=4)this.ready=true
-  }
+  onDeath(){this.finish(false,"O Fim de Desinformação",["A Desinformação caiu.","Mas com ela caíram todas as mentiras.","Destruir a mentira não cria verdade automaticamente."])}
+  onTalk(){this.tc++;const l=["Se todo mundo repete, deve ser verdade, certo?","Eu nunca quis machucar ninguém.","Mas as palavras têm peso.","Você acha que eu ainda posso mudar?"];DL.quick(l[Math.min(this.tc-1,l.length-1)]);if(this.tc>=4)this.ready=true}
   onAct(){this.ac++;DL.quick("Você mostra a diferença entre fato e opinião.")}
-  onMercy(){
-    if(!this.ready){DL.quick("Ela ainda se esconde atrás de máscaras.");return}
-    this.mc++;
-    if(this.mc>=2)this.finish(true,"A Redenção de Desinformação",[
-      "As máscaras caem. Uma por uma.",
-      "Por baixo delas, há vergonha. E arrependimento.",
-      "Ela começa a perguntar antes de afirmar.",
-      "A checar antes de compartilhar.",
-      "A verdade dá mais trabalho. Mas vale mais."
-    ]);
-    else DL.quick("Uma máscara cai. Ainda faltam outras.")
-  }
+  onMercy(){if(!this.ready){DL.quick("Ela ainda se esconde.");return}this.mc++;if(this.mc>=2)this.finish(true,"A Redenção de Desinformação",["As máscaras caem.","Ela começa a perguntar antes de afirmar.","A verdade dá mais trabalho. Mas vale mais."]);else DL.quick("Uma máscara cai.")}
 }
 
 class Boss3 extends BossB{
-  constructor(){super("Isolamento Social",42);this.phase=1;this.sa=0}
-  drawBoss(x,y){
-    if(this.phase===1) px(B3A,x,y,4,B3AP);
-    else px(B3B,x,y,4,B3BP)
-  }
+  constructor(){super("Isolamento Social",42,3);this.sa=0}
+  drawBoss(x,y){if(this.phase===1)px(B3A,x,y,3.5,B3AP);else px(B3B,x,y,3.5,B3BP)}
   attack(arr){
     this.tick++;
     if(this.phase===1){
+      // Green soul mode
+      if(this.tick===20) SoulMode.change("green");
       if(this.tick%22===0){
         for(let i=0;i<8;i++){
           const a=i*(Math.PI*2/8);
@@ -977,414 +977,150 @@ class Boss3 extends BossB{
         }
       }
     }else{
+      // Purple soul mode after transform
+      if(this.tick===5) SoulMode.change("purple");
+      if(this.tick===80) SoulMode.change("red");
       if(this.tick%5===0){
         this.sa+=12;const a=this.sa*Math.PI/180;
         arr.push({x:480,y:220,vx:Math.cos(a)*2.5,vy:Math.sin(a)*2.5,r:4,c:P.pk,t:120})
       }
+      // Homing missiles
+      if(this.tick%50===0){
+        arr.push({x:BT.bx+Math.random()*BT.bw,y:BT.by,vx:0,vy:1,r:6,c:"#ff00aa",t:180,homing:true})
+      }
     }
   }
-  onAttack(){this.hp-=8;AU.hit();
-    if(this.hp<=this.mhp/2&&this.phase===1){
-      this.phase=2;DL.quick("O Isolamento se transforma!")
-    }
-    if(this.hp<=0)this.finish(false,"O Fim de Isolamento Social",[
-      "O Isolamento se desfez.",
-      "Dentro da bolha quebrada, restou silêncio.",
-      "E a lembrança de alguém que só queria ser lembrado.",
-      "Destruir o muro não é o mesmo que construir uma ponte.",
-      "Às vezes é preciso mais do que força."
-    ])
-  }
-  onTalk(){this.tc++;
-    const l=["Me deixa. Como todo mundo.",
-      "Por que você ainda está aí?",
-      "Eu construí esse muro por uma razão.",
-      "...Mas talvez eu tenha me trancado junto.",
-      "Você realmente se importa?"];
-    DL.quick(l[Math.min(this.tc-1,l.length-1)]);
-    if(this.tc>=4)this.ready=true
-  }
+  onDeath(){this.finish(false,"O Fim de Isolamento Social",["O Isolamento se desfez.","Dentro da bolha quebrada, restou silêncio.","Destruir o muro não é construir uma ponte."])}
+  onTalk(){this.tc++;const l=["Me deixa. Como todo mundo.","Por que você ainda está aí?","Eu construí esse muro por uma razão.","...Mas talvez eu tenha me trancado junto.","Você realmente se importa?"];DL.quick(l[Math.min(this.tc-1,l.length-1)]);if(this.tc>=4)this.ready=true}
   onAct(){this.ac++;DL.quick("Você lembra de quando vocês não estavam sozinhos.")}
-  onMercy(){
-    if(!this.ready){DL.quick("A bolha ainda é grossa demais.");return}
-    this.finish(true,"A Redenção de Isolamento Social",[
-      "A bolha não estourou. Ela se abriu.",
-      "De dentro, alguém deu o primeiro passo.",
-      "Tremendo. Inseguro. Mas real.",
-      "Porque alguém ficou do lado de fora esperando.",
-      "Conexão não é sobre tecnologia. É sobre presença."
-    ])
+  onMercy(){if(!this.ready){DL.quick("A bolha ainda é grossa demais.");return}this.finish(true,"A Redenção de Isolamento Social",["A bolha se abriu.","De dentro, alguém deu o primeiro passo.","Porque alguém ficou esperando do lado de fora."])}
+  // Override takeDamage via onDeath path
+  checkTransform(){
+    if(this.hp<=this.mhp/2&&this.phase===1){this.phase=2;DL.quick("O Isolamento se transforma!");FX.spawnDeath(480,200)}
   }
 }
 
 class BossF extends BossB{
-  constructor(){super("Lucas",50);this.trust=0;this.trustReq=5;this.attacked=false}
-  drawBoss(x,y){px(BF,x,y,4,BFP)}
+  constructor(){super("Lucas",50,4);this.trust=0;this.trustReq=5;this.attacked=false}
+  drawBoss(x,y){px(BF,x,y,3.5,BFP)}
   attack(arr){
     this.tick++;
+    // Progressive soul mode changes
+    if(this.tick===20) SoulMode.change("blue");
+    if(this.tick===70) SoulMode.change("yellow");
+    if(this.tick===130) SoulMode.change("red");
+    
     let spd=this.trust<2?3:this.trust<4?2.2:1.4;
     let rate=this.trust<2?10:this.trust<4?16:28;
     if(this.tick%rate===0){
-      const dx=SL.x-480,dy=SL.y-220;
-      const d=Math.hypot(dx,dy)||1;
+      const dx=SL.x-480,dy=SL.y-220;const d=Math.hypot(dx,dy)||1;
       arr.push({x:480,y:220,vx:dx/d*spd,vy:dy/d*spd,r:5,c:P.tc,t:120})
     }
+    // Extra patterns based on trust
+    if(this.trust<2&&this.tick%20===0){
+      // Horizontal walls
+      const y=BT.by+20+Math.random()*(BT.bh-40);
+      for(let i=0;i<6;i++){
+        arr.push({x:BT.bx-10,y:y-30+i*12,vx:3,vy:0,r:3,c:"#00aa44",t:100,shape:"rect"})
+      }
+    }
+    if(this.trust>=2&&this.trust<4&&this.tick%35===0){
+      // Diamond pattern
+      for(let i=0;i<4;i++){
+        const a=i*Math.PI/2+this.tick*0.02;
+        arr.push({x:480,y:220,vx:Math.cos(a)*2,vy:Math.sin(a)*2,r:4,c:"#22ff88",t:120,shape:"diamond"})
+      }
+    }
   }
-  onAttack(){this.attacked=true;SV.d.attackedFinal=true;this.hp-=8;AU.hit();
-    if(this.hp<=0)this.finish(false,"Lucas caiu",[
-      "Você escolheu a força.",
-      "Lucas caiu antes de entender.",
-      "Talvez ele nunca tenha tido a chance.",
-      "O mundo digital continuou sem ele.",
-      "E sem você."
-    ])
+  onDeath(){
+    SV.d.attackedFinal=true;
+    this.finish(false,"Lucas caiu",["Você escolheu a força.","Lucas caiu antes de entender.","O mundo digital continuou sem ele.","E sem você."])
   }
-  onTalk(){this.tc++;this.trust=Math.min(this.trust+1,this.trustReq);
-    SV.d.finalTrust=this.trust;AU.mrc();
-    const l=["Você não entende o que estou fazendo.",
-      "Eu quero melhorar o mundo! Por que me impede?",
-      "Mas... as pessoas que ficaram para trás...",
-      "Eu... esqueci delas.",
-      "Será que é tarde demais para voltar?",
-      "Talvez... eu precise de alguém."];
-    DL.quick(l[Math.min(this.tc-1,l.length-1)])
-  }
+  onTalk(){this.tc++;this.trust=Math.min(this.trust+1,this.trustReq);SV.d.finalTrust=this.trust;AU.mrc();
+    const l=["Você não entende o que estou fazendo.","Eu quero melhorar o mundo!","Mas... as pessoas que ficaram para trás...","Eu... esqueci delas.","Será que é tarde demais?","Talvez... eu precise de alguém."];
+    DL.quick(l[Math.min(this.tc-1,l.length-1)])}
   onAct(){this.ac++;this.trust=Math.min(this.trust+1,this.trustReq);AU.mrc();
-    const l=["Você lembra do futebol na rua.",
-      "Das conversas sem pressa.",
-      "Das risadas que não precisavam de Wi-Fi.",
-      "Do amigo que ele ainda pode ser."];
-    DL.quick(l[(this.ac-1)%l.length])
-  }
-  onMercy(){
-    if(this.trust<this.trustReq){DL.quick("Lucas ainda resiste. Fale mais com ele.");return}
-    this.finish(true,"Lucas, Meu Melhor Amigo",[
-      "Você não destruiu Lucas.",
-      "Você o encontrou.",
-      "Debaixo de todo aquele código, ele ainda estava lá.",
-      "Assustado. Perdido. Mas humano.",
-      "Vocês se olharam. Sem tela entre vocês.",
-      "E pela primeira vez em muito tempo... ele sorriu."
-    ])
-  }
+    const l=["Você lembra do futebol na rua.","Das conversas sem pressa.","Das risadas que não precisavam de Wi-Fi.","Do amigo que ele ainda pode ser."];
+    DL.quick(l[(this.ac-1)%l.length])}
+  onMercy(){if(this.trust<this.trustReq){DL.quick("Lucas ainda resiste. Fale mais.");return}
+    this.finish(true,"Lucas, Meu Melhor Amigo",["Você não destruiu Lucas.","Você o encontrou.","Debaixo de todo aquele código, ele ainda estava lá.","Assustado. Perdido. Mas humano.","Vocês se olharam sem tela entre vocês.","E pela primeira vez em muito tempo... ele sorriu."])}
 }
 
-// ════════ STORY PANELS ════════
+// Override boss hp reduction to check transforms
+const origUpdate = BT.update.bind(BT);
+BT.update = function(){
+  origUpdate();
+  if(this.boss instanceof Boss3) this.boss.checkTransform();
+};
+
+// ════════ STORY ════════
 let storyData=null;
-
-function showStory(title,lines,cb){
-  state="story";storyData={title,lines,shown:[],idx:0,timer:0,done:false,cb}
-}
-
-function updateStory(){
-  if(!storyData||storyData.done)return;
-  storyData.timer++;
-  if(storyData.timer%80===0&&storyData.idx<storyData.lines.length){
-    storyData.shown.push(storyData.lines[storyData.idx]);
-    storyData.idx++
-  }
-  if(storyData.idx>=storyData.lines.length&&storyData.timer>storyData.lines.length*80+80)
-    storyData.done=true
-}
-
-function drawStory(){
-  if(!storyData)return;
-  cx.fillStyle="#000";cx.fillRect(0,0,W,H);
-  cText(storyData.title,70,26,P.wh);
-  cx.fillStyle=P.gy;cx.font="17px monospace";cx.textAlign="center";
-  storyData.shown.forEach((l,i)=>cx.fillText(l,W/2,150+i*32));
-  if(storyData.done&&Math.floor(frame/25)%2===0){
-    cx.fillStyle=P.yl;cx.fillText("Pressione ENTER ou clique para continuar",W/2,480)
-  }
-  cx.textAlign="left"
-}
-
-function nextStory(){
-  if(!storyData)return;
-  if(!storyData.done){storyData.shown=[...storyData.lines];storyData.done=true;return}
-  const cb=storyData.cb;storyData=null;if(cb)cb()
-}
+function showStory(title,lines,cb){state="story";storyData={title,lines,shown:[],idx:0,timer:0,done:false,cb}}
+function updateStory(){if(!storyData||storyData.done)return;storyData.timer++;if(storyData.timer%70===0&&storyData.idx<storyData.lines.length){storyData.shown.push(storyData.lines[storyData.idx]);storyData.idx++}if(storyData.idx>=storyData.lines.length&&storyData.timer>storyData.lines.length*70+70)storyData.done=true}
+function drawStory(){if(!storyData)return;cx.fillStyle="#000";cx.fillRect(0,0,W,H);cText(storyData.title,70,24,P.wh);cx.fillStyle=P.gy;cx.font="16px monospace";cx.textAlign="center";storyData.shown.forEach((l,i)=>cx.fillText(l,W/2,140+i*30));if(storyData.done&&Math.floor(frame/25)%2===0){cx.fillStyle=P.yl;cx.fillText("Pressione ENTER",W/2,480)}cx.textAlign="left"}
+function nextStory(){if(!storyData)return;if(!storyData.done){storyData.shown=[...storyData.lines];storyData.done=true;return}const cb=storyData.cb;storyData=null;if(cb)cb()}
 
 // ════════ ENDINGS ════════
+function getEnding(){
+  const d=SV.d;const allM=d.mercies>=4&&d.kills===0;const allK=d.kills>=4&&d.mercies===0;
+  const noAtk=!d.attackedFinal;const talkedAll=d.talks>=15;
+  if(allM&&noAtk&&talkedAll)return"true_pacifist";if(allM&&noAtk)return"pacifist";
+  if(allM)return"good";if(allK)return"genocide";if(d.kills>=3)return"bad";
+  if(d.mercies>d.kills)return"neutral_good";return"neutral"
+}
+
 function showEnding(){
-  const ending=getEnding();
-  AU.stopM();
-
-  const endings={
-    true_pacifist:{
-      title:"FINAL VERDADEIRO: O Caminho das Palavras",
-      music:"victory",
-      lines:[
-        "Você não levantou a mão contra ninguém.",
-        "Cada alma que cruzou seu caminho foi compreendida.",
-        "O Vício aprendeu a desligar.",
-        "A Desinformação aprendeu a duvidar.",
-        "O Isolamento aprendeu a abrir a porta.",
-        "E Lucas... Lucas lembrou quem ele era.",
-        "Porque alguém nunca desistiu dele.",
-        "O mundo não mudou com código.",
-        "Mudou com compaixão.",
-        "",
-        "FIM VERDADEIRO"
-      ]
-    },
-    pacifist:{
-      title:"FINAL PACIFISTA: Sem Violência",
-      music:"victory",
-      lines:[
-        "Você escolheu não atacar.",
-        "Cada conflito foi resolvido com palavras.",
-        "Lucas voltou. Diferente, mas presente.",
-        "A tecnologia continua. Mas agora com propósito.",
-        "",
-        "FIM PACIFISTA"
-      ]
-    },
-    good:{
-      title:"FINAL BOM: Amizade Restaurada",
-      music:"victory",
-      lines:[
-        "Você mostrou misericórdia a todos.",
-        "Lucas percebeu o erro. Voltou ao mundo real.",
-        "Nem tudo foi perfeito. Mas foi honesto.",
-        "",
-        "FIM BOM"
-      ]
-    },
-    neutral_good:{
-      title:"FINAL NEUTRO: Entre Dois Mundos",
-      music:"sad",
-      lines:[
-        "Você ajudou alguns. Destruiu outros.",
-        "Lucas voltou... mas com cicatrizes.",
-        "O mundo é mais cinza do que preto e branco.",
-        "Talvez da próxima vez, mais vozes sejam ouvidas.",
-        "",
-        "FIM NEUTRO"
-      ]
-    },
-    neutral:{
-      title:"FINAL NEUTRO: Consequências",
-      music:"sad",
-      lines:[
-        "Suas escolhas tiveram peso.",
-        "Algumas almas foram salvas. Outras não.",
-        "Lucas olha para trás com dúvida.",
-        "O futuro é incerto.",
-        "",
-        "FIM NEUTRO"
-      ]
-    },
-    bad:{
-      title:"FINAL RUIM: Força Bruta",
-      music:"sad",
-      lines:[
-        "Você escolheu a violência na maioria das vezes.",
-        "Os problemas foram silenciados, não resolvidos.",
-        "Lucas caiu. A tecnologia continuou sem freio.",
-        "E o mundo ficou um pouco mais frio.",
-        "",
-        "FIM RUIM"
-      ]
-    },
-    genocide:{
-      title:"FINAL GENOCIDA: Destruição Total",
-      music:"sad",
-      lines:[
-        "Você destruiu todos eles.",
-        "Nenhuma voz foi ouvida. Nenhuma mão estendida.",
-        "A tecnologia avançou sozinha.",
-        "Sem freio. Sem alma. Sem pessoas.",
-        "Parabéns. Você venceu.",
-        "Mas a que custo?",
-        "",
-        "FIM GENOCIDA"
-      ]
-    }
+  AU.stopM();const ending=getEnding();
+  const E={
+    true_pacifist:{t:"FINAL VERDADEIRO",m:"victory",l:["Você não levantou a mão contra ninguém.","Cada alma foi compreendida.","Lucas lembrou quem ele era.","O mundo mudou com compaixão.","","FIM VERDADEIRO"]},
+    pacifist:{t:"FINAL PACIFISTA",m:"victory",l:["Você escolheu não atacar.","Cada conflito foi resolvido com palavras.","Lucas voltou.","","FIM PACIFISTA"]},
+    good:{t:"FINAL BOM",m:"victory",l:["Você mostrou misericórdia.","Lucas voltou ao mundo real.","","FIM BOM"]},
+    neutral_good:{t:"FINAL NEUTRO",m:"sad",l:["Você ajudou alguns. Destruiu outros.","O mundo é mais cinza do que parece.","","FIM NEUTRO"]},
+    neutral:{t:"FINAL NEUTRO",m:"sad",l:["Suas escolhas tiveram peso.","O futuro é incerto.","","FIM NEUTRO"]},
+    bad:{t:"FINAL RUIM",m:"sad",l:["Você escolheu violência na maioria das vezes.","Os problemas foram silenciados, não resolvidos.","","FIM RUIM"]},
+    genocide:{t:"FINAL GENOCIDA",m:"sad",l:["Você destruiu todos.","Nenhuma voz foi ouvida.","Parabéns. Mas a que custo?","","FIM GENOCIDA"]}
   };
-
-  const e=endings[ending]||endings.neutral;
-  AU.playM(e.music);
-
-  showStory(e.title,e.lines,()=>{showCredits()})
+  const e=E[ending]||E.neutral;AU.playM(e.m);
+  showStory(e.t,e.l,()=>showCredits())
 }
 
 // ════════ CREDITS ════════
-let creditsScroll=0;
-function showCredits(){
-  state="credits";creditsScroll=0;AU.playM("victory")
-}
-
+let creditsY=0;
+function showCredits(){state="credits";creditsY=0}
 function drawCredits(){
-  cx.fillStyle="#000";cx.fillRect(0,0,W,H);
-  creditsScroll+=0.4;
-
-  const lines=[
-    "","","",
-    "════════════════════════════",
-    "ENTRE LINHAS E TELAS",
-    "════════════════════════════",
-    "","",
-    "── CRIAÇÃO ──",
-    "VH45de",
-    "","",
-    "── ORIENTAÇÃO ──",
-    "IA para a produção do jogo",
-    "","",
-    "── GAME DESIGN ──",
-    "VH45de",
-    "","",
-    "── PROGRAMAÇÃO ──",
-    "VH45de",
-    "com orientação de IA",
-    "","",
-    "── NARRATIVA ──",
-    "VH45de",
-    "","",
-    "── ARTE PIXEL ──",
-    "Sprites originais por código",
-    "","",
-    "── ÁUDIO ──",
-    "Síntese procedural (Web Audio API)",
-    "","",
-    "── INSPIRAÇÃO ──",
-    "Jogos RPG com batalha por turnos",
-    "e sistema de escolhas morais",
-    "","",
-    "── AGRADECIMENTOS ──",
-    "",
-    "A todos que já se perderam numa tela",
-    "e encontraram o caminho de volta.",
-    "",
-    "A quem já espalhou uma mentira",
-    "e depois aprendeu a pedir desculpa.",
-    "",
-    "A quem já se sentiu sozinho",
-    "e descobriu que alguém se importava.",
-    "",
-    "E a você, que jogou até aqui.",
-    "","",
-    "── MENSAGEM FINAL ──",
-    "",
-    "A tecnologia é uma ferramenta.",
-    "Ela pode conectar ou isolar.",
-    "Informar ou enganar.",
-    "Libertar ou aprisionar.",
-    "",
-    "A escolha sempre foi sua.",
-    "",
-    "Use para construir pontes.",
-    "Não muros.",
-    "","","",
-    "── ESTATÍSTICAS ──",
-    `Mortes: ${SV.d.deaths}`,
-    `Misericórdias: ${SV.d.mercies}`,
-    `Derrotas: ${SV.d.kills}`,
-    `Conversas: ${SV.d.talks}`,
-    `Level: ${SV.d.lv}`,
-    `Final: ${getEnding().replace(/_/g," ").toUpperCase()}`,
-    "","","",
-    "════════════════════════════",
-    "Obrigado por jogar.",
-    "════════════════════════════",
-    "","","","",
-    "Clique para voltar ao menu"
-  ];
-
+  cx.fillStyle="#000";cx.fillRect(0,0,W,H);creditsY+=0.4;
+  const l=["","","","════════════════════════════","ENTRE LINHAS E TELAS","════════════════════════════","","","── CRIAÇÃO ──","VH45de","","── ORIENTAÇÃO ──","IA para a produção do jogo","","── GAME DESIGN ──","VH45de","","── PROGRAMAÇÃO ──","VH45de com orientação de IA","","── NARRATIVA ──","VH45de","","── ARTE PIXEL ──","Sprites originais por código","","── ÁUDIO ──","Síntese procedural (Web Audio API)","","── SISTEMAS ──","Barra de crítico","Modos de alma (Vermelha/Azul/Verde/Amarela/Roxa)","Padrões de ataque avançados","Sistema de múltiplos finais","","── AGRADECIMENTOS ──","","A todos que já se perderam numa tela","e encontraram o caminho de volta.","","A você, que jogou até aqui.","","","── ESTATÍSTICAS ──",`Mortes: ${SV.d.deaths}`,`Misericórdias: ${SV.d.mercies}`,`Derrotas: ${SV.d.kills}`,`Conversas: ${SV.d.talks}`,`Level: ${SV.d.lv}`,`Final: ${getEnding().replace(/_/g," ").toUpperCase()}`,"","","════════════════════════════","Obrigado por jogar.","════════════════════════════","","","","Clique para voltar ao menu"];
   cx.font="16px monospace";cx.textAlign="center";
-  lines.forEach((l,i)=>{
-    const y=H-creditsScroll+i*28;
-    if(y>-20&&y<H+20){
-      if(l.includes("═"))cx.fillStyle=P.cy;
-      else if(l.includes("──"))cx.fillStyle=P.yl;
-      else if(l.includes("VH45de"))cx.fillStyle=P.gn;
-      else if(l.includes("IA"))cx.fillStyle=P.cy;
-      else cx.fillStyle=P.wh;
-      cx.fillText(l,W/2,y)
-    }
-  });
-  cx.textAlign="left"
+  l.forEach((t,i)=>{const y=H-creditsY+i*28;if(y>-20&&y<H+20){
+    cx.fillStyle=t.includes("═")?P.cy:t.includes("──")?P.yl:t.includes("VH45de")?P.gn:t.includes("IA")?P.cy:P.wh;
+    cx.fillText(t,W/2,y)}});cx.textAlign="left"
 }
 
 // ════════ MENU ════════
 const MN={
   sel:0,opts:["NOVO JOGO","CONTINUAR","LIMPAR SAVE"],
   stars:[],
-  init(){
-    this.stars=[];for(let i=0;i<60;i++)this.stars.push({x:Math.random()*W,y:Math.random()*H,s:Math.random()*1.5+.5,sp:Math.random()*.3+.1});
-    AU.playM("menu")
-  },
-  update(){
-    for(const s of this.stars){s.y+=s.sp;if(s.y>H){s.y=0;s.x=Math.random()*W}}
-  },
+  init(){this.stars=[];for(let i=0;i<60;i++)this.stars.push({x:Math.random()*W,y:Math.random()*H,s:Math.random()*1.5+.5,sp:Math.random()*.3+.1});AU.playM("menu")},
+  update(){for(const s of this.stars){s.y+=s.sp;if(s.y>H){s.y=0;s.x=Math.random()*W}}},
   draw(){
     cx.fillStyle="#050818";cx.fillRect(0,0,W,H);
     for(const s of this.stars){cx.fillStyle=`rgba(200,220,255,${.2+Math.sin(frame/30+s.x)*.2})`;cx.fillRect(s.x,s.y,s.s,s.s)}
-
-    cText("ENTRE LINHAS",130,36,P.cy);
-    cText("E TELAS",170,36,P.cy);
-    cText("Uma história sobre conexões perdidas",210,14,P.gy);
-
-    // Player and Lucas facing each other
-    px(SP_IDLE,W/2-120,250,3,SP_PAL,false);
-    px(LUCAS_NPC,W/2+60,250,3,LUCAS_NPC_PAL,true);
-
-    // Heart between them
-    drawSoul(W/2,285,8);
-
-    for(let i=0;i<this.opts.length;i++){
-      const y=340+i*50;
-      const sel=this.sel===i;
-      box(350,y,260,38,sel?P.cy:"#000",P.cy,2);
-      cx.fillStyle=sel?"#000":P.cy;
-      cx.font="bold 18px monospace";cx.textAlign="center";
-      cx.fillText(this.opts[i],480,y+25)
-    }
+    cText("ENTRE LINHAS",130,36,P.cy);cText("E TELAS",170,36,P.cy);
+    cText("Uma história sobre conexões perdidas",205,14,P.gy);
+    px(SP_IDLE,W/2-120,240,3,SP_PAL,false);px(LUCAS_NPC,W/2+60,240,3,LUCAS_P,true);
+    drawSoulMini(W/2,275);
+    for(let i=0;i<this.opts.length;i++){const y=330+i*48;const sel=this.sel===i;box(350,y,260,38,sel?P.cy:"#000",P.cy,2);cx.fillStyle=sel?"#000":P.cy;cx.font="bold 18px monospace";cx.textAlign="center";cx.fillText(this.opts[i],480,y+25)}
     cx.textAlign="left";
-
-    cx.fillStyle=P.gy;cx.font="10px monospace";
-    cText("Criação: VH45de | Orientação: IA",520,10,P.gy);
-    cText("Setas + Enter | Mobile: botões",530,10,"rgba(255,255,255,.3)")
+    cText("Criação: VH45de | Orientação: IA",505,10,P.gy);
+    cText("Setas + Enter/Z | Mobile: botões",518,10,"rgba(255,255,255,.3)")
   },
-  confirm(){
-    AU.sel();
-    if(this.sel===0){
-      SV.reset();PL.hp=20;PL.maxHp=20;
-      showStory("ENTRE LINHAS E TELAS",[
-        "Em um mundo onde telas substituíram rostos...",
-        "onde notificações valem mais que conversas...",
-        "um estudante percebeu que algo estava errado.",
-        "",
-        "Seu melhor amigo, Lucas, mudou.",
-        "Ficou obcecado com tecnologia.",
-        "Esqueceu das pessoas. Esqueceu de si.",
-        "",
-        "E então, manifestações surgiram.",
-        "Vício. Mentira. Solidão.",
-        "Cada uma alimentada pelo que Lucas criou.",
-        "",
-        "Agora, cabe a você atravessar esse mundo.",
-        "Não apenas com força. Mas com escolha.",
-        "",
-        "Cada ação terá consequência.",
-        "Cada vida poupada ou destruída definirá o final.",
-        "",
-        "A jornada começa agora."
-      ],()=>WR.init(0))
-    }else if(this.sel===1){
-      SV.load();PL.hp=SV.d.hp;PL.maxHp=SV.d.maxHp||20;
-      WR.init(Math.min(SV.d.phase,3))
-    }else{
-      SV.reset();DL.quick("Save apagado.")
-    }
+  confirm(){AU.sel();
+    if(this.sel===0){SV.reset();PL.hp=20;PL.maxHp=20;
+      showStory("ENTRE LINHAS E TELAS",["Em um mundo onde telas substituíram rostos...","onde notificações valem mais que conversas...","um estudante percebeu que algo estava errado.","","Seu melhor amigo, Lucas, mudou.","Ficou obcecado com tecnologia.","Esqueceu das pessoas. Esqueceu de si.","","Manifestações surgiram. Vício. Mentira. Solidão.","Cada uma alimentada pelo que Lucas criou.","","Agora, cabe a você atravessar esse mundo.","Cada ação terá consequência.","Cada vida poupada ou destruída definirá o final.","","A jornada começa agora."],()=>WR.init(0))
+    }else if(this.sel===1){SV.load();PL.hp=SV.d.hp;PL.maxHp=SV.d.maxHp||20;WR.init(Math.min(SV.d.phase,3))}
+    else{SV.reset();DL.quick("Save apagado.")}
   }
 };
-
-// ════════ BOOT ════════
-function boot(){
-  state="boot";fadeAlpha=1;
-  setTimeout(()=>{state="menu";MN.init();fade(-1)},500)
-}
 
 // ════════ INPUT ════════
 document.addEventListener("keydown",e=>{
@@ -1393,98 +1129,63 @@ document.addEventListener("keydown",e=>{
   if(e.key==="ArrowRight"||e.key==="d")K.r=1;
   if(e.key==="ArrowUp"||e.key==="w")K.u=1;
   if(e.key==="ArrowDown"||e.key==="s")K.d=1;
-  if(e.key==="e"||e.key==="Enter"||e.key===" "){K.a=1;
+  if(e.key==="e"||e.key==="Enter"){K.a=1;
     if(state==="dialogue"){e.preventDefault();DL.next()}
     else if(state==="menu"){e.preventDefault();MN.confirm()}
     else if(state==="story"){e.preventDefault();nextStory()}
     else if(state==="credits"){e.preventDefault();state="menu";MN.init()}
     else if(state==="battle"&&BT.mode==="player"){e.preventDefault();BT.doAction()}
   }
-  if(e.key==="Escape")K.c=1;
-
-  // Menu/Battle nav
-  if(state==="menu"){
-    if(e.key==="ArrowUp"){MN.sel=(MN.sel+MN.opts.length-1)%MN.opts.length;AU.sel()}
-    if(e.key==="ArrowDown"){MN.sel=(MN.sel+1)%MN.opts.length;AU.sel()}
+  if(e.key==="z"||e.key==="Z"){K.z=1;
+    if(state==="battle"&&BT.mode==="crit"){e.preventDefault();BT.confirmCrit()}
   }
-  if(state==="battle"&&BT.mode==="player"){
-    if(e.key==="ArrowLeft"){BT.sel=(BT.sel+3)%4;AU.sel()}
-    if(e.key==="ArrowRight"){BT.sel=(BT.sel+1)%4;AU.sel()}
-  }
+  if(state==="menu"){if(e.key==="ArrowUp"){MN.sel=(MN.sel+MN.opts.length-1)%MN.opts.length;AU.sel()}if(e.key==="ArrowDown"){MN.sel=(MN.sel+1)%MN.opts.length;AU.sel()}}
+  if(state==="battle"&&BT.mode==="player"){if(e.key==="ArrowLeft"){BT.sel=(BT.sel+3)%4;AU.sel()}if(e.key==="ArrowRight"){BT.sel=(BT.sel+1)%4;AU.sel()}}
 });
 document.addEventListener("keyup",e=>{
-  if(e.key==="ArrowLeft"||e.key==="a")K.l=0;
-  if(e.key==="ArrowRight"||e.key==="d")K.r=0;
-  if(e.key==="ArrowUp"||e.key==="w")K.u=0;
-  if(e.key==="ArrowDown"||e.key==="s")K.d=0;
-  if(e.key==="e"||e.key==="Enter"||e.key===" ")K.a=0;
-  if(e.key==="Escape")K.c=0;
+  if(e.key==="ArrowLeft"||e.key==="a")K.l=0;if(e.key==="ArrowRight"||e.key==="d")K.r=0;
+  if(e.key==="ArrowUp"||e.key==="w")K.u=0;if(e.key==="ArrowDown"||e.key==="s")K.d=0;
+  if(e.key==="e"||e.key==="Enter")K.a=0;if(e.key==="z"||e.key==="Z")K.z=0
 });
 
-cv.addEventListener("click",e=>{
-  AU.res();
-  const r=cv.getBoundingClientRect();
-  mx=(e.clientX-r.left)*(W/r.width);
-  my=(e.clientY-r.top)*(H/r.height);
-  if(state==="dialogue")DL.next();
-  else if(state==="story")nextStory();
-  else if(state==="menu")MN.confirm();
-  else if(state==="credits"){state="menu";MN.init()}
-  else if(state==="battle"&&BT.mode==="player"){
-    for(let i=0;i<4;i++){
-      const ax=80+i*200;
-      if(mx>=ax&&mx<=ax+140&&my>=420&&my<=460){BT.sel=i;BT.doAction()}
-    }
+cv.addEventListener("click",e=>{AU.res();const r=cv.getBoundingClientRect();mx=(e.clientX-r.left)*(W/r.width);my=(e.clientY-r.top)*(H/r.height);
+  if(state==="dialogue")DL.next();else if(state==="story")nextStory();else if(state==="menu")MN.confirm();else if(state==="credits"){state="menu";MN.init()}
+  else if(state==="battle"){
+    if(BT.mode==="crit")BT.confirmCrit();
+    else if(BT.mode==="player"){for(let i=0;i<4;i++){const ax=80+i*200;if(mx>=ax&&mx<=ax+140&&my>=440&&my<=476){BT.sel=i;BT.doAction()}}}
   }
 });
 
-// Mobile
-function bindM(id,key){
-  const el=document.getElementById(id);
-  const on=e=>{e.preventDefault();K[key]=1;AU.res()};
-  const off=e=>{e.preventDefault();K[key]=0};
-  el.addEventListener("touchstart",on,{passive:false});
-  el.addEventListener("touchend",off,{passive:false})
-}
+function bindM(id,key){const el=document.getElementById(id);el.addEventListener("touchstart",e=>{e.preventDefault();K[key]=1;AU.res()},{passive:false});el.addEventListener("touchend",e=>{e.preventDefault();K[key]=0},{passive:false})}
 bindM("ml","l");bindM("mr","r");bindM("mu","u");bindM("md","d");
-document.getElementById("ma").addEventListener("touchstart",e=>{
-  e.preventDefault();AU.res();K.a=1;
-  if(state==="dialogue")DL.next();
-  else if(state==="story")nextStory();
-  else if(state==="menu")MN.confirm();
-  else if(state==="credits"){state="menu";MN.init()}
-  else if(state==="battle"&&BT.mode==="player")BT.doAction();
-},{passive:false});
+document.getElementById("ma").addEventListener("touchstart",e=>{e.preventDefault();AU.res();K.a=1;
+  if(state==="dialogue")DL.next();else if(state==="story")nextStory();else if(state==="menu")MN.confirm();else if(state==="credits"){state="menu";MN.init()}
+  else if(state==="battle"&&BT.mode==="player")BT.doAction()},{passive:false});
 document.getElementById("ma").addEventListener("touchend",e=>{e.preventDefault();K.a=0},{passive:false});
+document.getElementById("mz").addEventListener("touchstart",e=>{e.preventDefault();AU.res();K.z=1;
+  if(state==="battle"&&BT.mode==="crit")BT.confirmCrit()},{passive:false});
+document.getElementById("mz").addEventListener("touchend",e=>{e.preventDefault();K.z=0},{passive:false});
 
 // ════════ MAIN LOOP ════════
 function tick(){
-  frame++;
-  updateFade();
-  DL.update();
+  frame++;updateFade();DL.update();FX.update();
+  if(state==="menu")MN.update();
+  else if(state==="world")WR.update();
+  else if(state==="battle")BT.update();
+  else if(state==="story")updateStory();
 
-  if(state==="menu") MN.update();
-  else if(state==="world") WR.update();
-  else if(state==="battle") BT.update();
-  else if(state==="story") updateStory();
-
-  // Draw
   cx.clearRect(0,0,W,H);
-
   if(state==="boot"){cx.fillStyle="#000";cx.fillRect(0,0,W,H)}
-  else if(state==="menu") MN.draw();
-  else if(state==="world"||state==="dialogue") WR.draw();
-  else if(state==="battle") BT.draw();
-  else if(state==="story") drawStory();
-  else if(state==="credits") drawCredits();
-
-  DL.draw();
-  drawFade();
-
+  else if(state==="menu")MN.draw();
+  else if(state==="world"||state==="dialogue")WR.draw();
+  else if(state==="battle")BT.draw();
+  else if(state==="story")drawStory();
+  else if(state==="credits")drawCredits();
+  DL.draw();FX.draw();drawFade();
   requestAnimationFrame(tick)
 }
 
-boot();
+state="boot";fadeA=1;setTimeout(()=>{state="menu";MN.init();fadeD=-1},500);
 tick();
 </script>
 </body>
