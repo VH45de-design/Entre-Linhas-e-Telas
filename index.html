@@ -1,3054 +1,1491 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, 
-          maximum-scale=1.0, user-scalable=no">
-    <title>Entre Linhas e Telas</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            background: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
-            font-family: 'Courier New', monospace;
-            touch-action: none;
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-
-        #game-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            max-width: 960px;
-            max-height: 540px;
-        }
-
-        canvas {
-            display: block;
-            width: 100% !important;
-            height: 100% !important;
-            image-rendering: pixelated;
-        }
-
-        /* Mobile Controls */
-        #mobile-controls {
-            display: none;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 120px;
-            z-index: 100;
-        }
-
-        .mobile-btn {
-            position: absolute;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.2);
-            border: 2px solid rgba(255,255,255,0.4);
-            color: white;
-            font-size: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            touch-action: none;
-        }
-
-        .mobile-btn:active {
-            background: rgba(255,255,255,0.5);
-        }
-
-        #btn-left  { left: 20px; bottom: 30px; }
-        #btn-right { left: 100px; bottom: 30px; }
-        #btn-jump  { right: 20px; bottom: 30px; }
-        #btn-action{ right: 100px; bottom: 30px; }
-
-        /* Loading Screen */
-        #loading {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: #000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            z-index: 200;
-            transition: opacity 1s;
-        }
-
-        #loading h1 {
-            font-size: 28px;
-            margin-bottom: 20px;
-            color: #4af;
-        }
-
-        #loading-bar {
-            width: 300px;
-            height: 8px;
-            background: #333;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        #loading-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #4af, #f4a);
-            transition: width 0.3s;
-        }
-
-        #loading-text {
-            margin-top: 10px;
-            font-size: 14px;
-            color: #888;
-        }
-
-        @media (max-width: 768px) {
-            #mobile-controls { display: block; }
-            #game-container {
-                max-width: 100vw;
-                max-height: calc(100vh - 120px);
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Entre Linhas e Telas</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;touch-action:none;user-select:none}
+#w{position:relative;width:min(100vw,960px);height:min(100vh,540px)}
+canvas{width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+.mb{position:absolute;width:52px;height:52px;border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;border-radius:8px;display:none;align-items:center;justify-content:center;font-size:20px;pointer-events:auto;touch-action:none}
+@media(max-width:800px){.mb{display:flex}}
+#ml{left:12px;bottom:16px}
+#mr{left:72px;bottom:16px}
+#mu{right:72px;bottom:16px}
+#md{right:12px;bottom:72px}
+#ma{right:12px;bottom:16px}
+</style>
 </head>
 <body>
-    <!-- Loading Screen -->
-    <div id="loading">
-        <h1>Entre Linhas e Telas</h1>
-        <div id="loading-bar">
-            <div id="loading-fill"></div>
-        </div>
-        <p id="loading-text">Carregando...</p>
-    </div>
+<div id="w">
+<canvas id="c" width="960" height="540"></canvas>
+<div style="position:absolute;inset:0;pointer-events:none">
+<div class="mb" id="ml">◀</div>
+<div class="mb" id="mr">▶</div>
+<div class="mb" id="mu">▲</div>
+<div class="mb" id="md">▼</div>
+<div class="mb" id="ma">A</div>
+</div>
+</div>
+<script>
+// ════════════════════════════════════════════════════
+// ENTRE LINHAS E TELAS - RPG Completo
+// Criação: VH45de
+// Orientação: IA para produção do jogo
+// ════════════════════════════════════════════════════
 
-    <!-- Game Container -->
-    <div id="game-container"></div>
+const W=960,H=540;
+const cv=document.getElementById("c");
+const cx=cv.getContext("2d");
+cx.imageSmoothingEnabled=false;
 
-    <!-- Mobile Controls -->
-    <div id="mobile-controls">
-        <div class="mobile-btn" id="btn-left">◀</div>
-        <div class="mobile-btn" id="btn-right">▶</div>
-        <div class="mobile-btn" id="btn-jump">▲</div>
-        <div class="mobile-btn" id="btn-action">●</div>
-    </div>
+// ════════ GLOBALS ════════
+let frame=0,state="boot",fadeAlpha=1,fadeDir=0;
+const K={l:0,r:0,u:0,d:0,a:0,c:0};
+let mx=0,my=0;
 
-    <!-- GAME SCRIPT - TUDO EM UM ARQUIVO -->
-    <script>
-// ══════════════════════════════════════════════════════
-// 🎮 ENTRE LINHAS E TELAS - JOGO COMPLETO
-// Engine: Canvas 2D Puro (sem dependências)
-// ══════════════════════════════════════════════════════
-
-// ══════════════════════════════════════════════════════
-// SEÇÃO 1: CONFIGURAÇÃO GLOBAL
-// ══════════════════════════════════════════════════════
-
-const GAME_CONFIG = {
-    width: 960,
-    height: 540,
-    fps: 60,
-    gravity: 0.5,
-    title: "Entre Linhas e Telas",
-    version: "1.0.0"
+// ════════ COLORS ════════
+const P={
+  bk:"#000",wh:"#fff",gy:"#9d9d9d",dg:"#333",
+  rd:"#ff2b2b",hr:"#ff1744",bl:"#3b82ff",cy:"#44dfff",
+  yl:"#ffd24a",or:"#ff9a2e",gn:"#47ff79",pr:"#9b59ff",
+  pk:"#ff62c7",sk:"#f3c9a4",sk2:"#d4a67a",hr2:"#3e2417",
+  sh:"#326cff",sh2:"#1f46a9",pn:"#2b2d78",bk2:"#111",
+  ct:"#1d1d1d",tc:"#2dff84",bg1:"#081226",bg2:"#240909",
+  bg3:"#0a0c1f",bg4:"#031307"
 };
 
-const COLORS = {
-    black: '#000000',
-    white: '#ffffff',
-    red: '#ff3333',
-    blue: '#3388ff',
-    green: '#33ff88',
-    yellow: '#ffcc33',
-    purple: '#8833ff',
-    cyan: '#33ccff',
-    orange: '#ff8833',
-    pink: '#ff33aa',
-    darkBlue: '#0a0a2e',
-    neonBlue: '#00ccff',
-    neonGreen: '#00ff66',
-    neonRed: '#ff0044',
-    skin: '#ffcc99',
-    hair: '#332211',
-    shirt: '#3366cc',
-    pants: '#222244',
-    shoe: '#111111'
+// ════════ SAVE ════════
+const SV={
+  k:"elt_rpgv3",
+  d:{phase:0,hp:20,maxHp:20,lv:1,xp:0,
+     kills:0,mercies:0,talks:0,acts:0,
+     bossState:{},lucas:{},items:[],
+     flags:{},deaths:0,noHitBosses:{},
+     attackedFinal:false,playTime:0},
+  load(){
+    try{const s=localStorage.getItem(this.k);
+    if(s)this.d={...this.d,...JSON.parse(s)}}catch(e){}
+  },
+  save(){
+    if(state==="battle")return;
+    try{localStorage.setItem(this.k,JSON.stringify(this.d))}catch(e){}
+  },
+  reset(){localStorage.removeItem(this.k);this.d={phase:0,hp:20,maxHp:20,lv:1,xp:0,kills:0,mercies:0,talks:0,acts:0,bossState:{},lucas:{},items:[],flags:{},deaths:0,noHitBosses:{},attackedFinal:false,playTime:0}}
 };
-
-const KEYS = {
-    left: false,
-    right: false,
-    up: false,
-    down: false,
-    jump: false,
-    action: false,
-    escape: false
-};
-
-let canvas, ctx;
-let gameState = 'loading';
-let currentScene = null;
-let deltaTime = 0;
-let lastTime = 0;
-let isMobile = false;
-let mouseX = 0, mouseY = 0;
-let mouseDown = false;
-let frameCount = 0;
-
-// ══════════════════════════════════════════════════════
-// SEÇÃO 2: SISTEMA DE SAVE
-// ══════════════════════════════════════════════════════
-
-const SaveSystem = {
-    saveKey: 'entreLinhasETelas_save',
-    saveBlocked: false,
-    blockReason: '',
-
-    defaultData: {
-        currentPhase: 0,
-        playerHealth: 100,
-        playerMaxHealth: 100,
-        playerX: 100,
-        playerY: 300,
-        boss1Defeated: false,
-        boss2Defeated: false,
-        boss3Defeated: false,
-        finalBossDefeated: false,
-        boss1Mercy: false,
-        boss2Mercy: false,
-        boss3Mercy: false,
-        finalBossMercy: false,
-        finalBossTrust: 0,
-        dialoguesSeen: {},
-        checkpoints: {},
-        preBossSaved: {},
-        totalDeaths: 0,
-        totalPlayTime: 0,
-        achievements: {},
-        musicVolume: 0.7,
-        sfxVolume: 0.8
-    },
-
-    data: null,
-
-    init() {
-        this.load();
-    },
-
-    save() {
-        if (this.saveBlocked) {
-            console.log('⚠️ ' + this.blockReason);
-            DialogueSystem.showQuick(this.blockReason);
-            return false;
-        }
-        try {
-            localStorage.setItem(this.saveKey, JSON.stringify(this.data));
-            console.log('✅ Jogo salvo!');
-            return true;
-        } catch(e) {
-            console.error('❌ Erro ao salvar:', e);
-            return false;
-        }
-    },
-
-    load() {
-        try {
-            const saved = localStorage.getItem(this.saveKey);
-            if (saved) {
-                this.data = {...this.defaultData, ...JSON.parse(saved)};
-                console.log('✅ Save carregado!');
-            } else {
-                this.newGame();
-            }
-        } catch(e) {
-            this.newGame();
-        }
-    },
-
-    newGame() {
-        this.data = {...this.defaultData};
-        console.log('🆕 Novo jogo!');
-    },
-
-    deleteSave() {
-        localStorage.removeItem(this.saveKey);
-        this.newGame();
-    },
-
-    hasSave() {
-        return localStorage.getItem(this.saveKey) !== null;
-    },
-
-    blockSave(reason) {
-        this.saveBlocked = true;
-        this.blockReason = reason;
-    },
-
-    unblockSave() {
-        this.saveBlocked = false;
-        this.blockReason = '';
-    },
-
-    saveBeforeBoss(bossIndex) {
-        const wasBlocked = this.saveBlocked;
-        this.saveBlocked = false;
-        this.data.preBossSaved[bossIndex] = true;
-        this.data.playerHealth = this.data.playerMaxHealth;
-        this.save();
-        this.saveBlocked = wasBlocked;
-        DialogueSystem.showQuick('💾 Save automático antes da batalha!');
-        EffectsSystem.spawnSaveEffect(player.x, player.y);
-    },
-
-    setBossDefeated(index, mercy) {
-        const keys = ['boss1Defeated','boss2Defeated','boss3Defeated','finalBossDefeated'];
-        const mercyKeys = ['boss1Mercy','boss2Mercy','boss3Mercy','finalBossMercy'];
-        if (index < keys.length) {
-            this.data[keys[index]] = true;
-            this.data[mercyKeys[index]] = mercy;
-            this.data.currentPhase = index + 1;
-        }
-        const wasBlocked = this.saveBlocked;
-        this.saveBlocked = false;
-        this.save();
-        this.saveBlocked = wasBlocked;
-    }
-};
-
-// ══════════════════════════════════════════════════════
-// SEÇÃO 3: SISTEMA DE ÁUDIO
-// ══════════════════════════════════════════════════════
-
-const AudioSystem = {
-    audioCtx: null,
-    currentMusic: null,
-    musicGain: null,
-    sfxGain: null,
-
-    init() {
-        try {
-            this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            this.musicGain = this.audioCtx.createGain();
-            this.musicGain.connect(this.audioCtx.destination);
-            this.musicGain.gain.value = SaveSystem.data.musicVolume;
-            this.sfxGain = this.audioCtx.createGain();
-            this.sfxGain.connect(this.audioCtx.destination);
-            this.sfxGain.gain.value = SaveSystem.data.sfxVolume;
-        } catch(e) {
-            console.log('⚠️ Web Audio não suportado');
-        }
-    },
-
-    resume() {
-        if (this.audioCtx && this.audioCtx.state === 'suspended')
-            this.audioCtx.resume();
-    },
-
-    // Gera tom simples (substitui arquivos de áudio)
-    playTone(freq, duration, type = 'square', volume = 0.3) {
-        if (!this.audioCtx) return;
-        try {
-            const osc = this.audioCtx.createOscillator();
-            const gain = this.audioCtx.createGain();
-            osc.type = type;
-            osc.frequency.value = freq;
-            gain.gain.value = volume * SaveSystem.data.sfxVolume;
-            gain.gain.exponentialRampToValueAtTime(0.001, 
-                this.audioCtx.currentTime + duration);
-            osc.connect(gain);
-            gain.connect(this.audioCtx.destination);
-            osc.start();
-            osc.stop(this.audioCtx.currentTime + duration);
-        } catch(e) {}
-    },
-
-    playJump()     { this.playTone(400, 0.1, 'square', 0.2); 
-                     this.playTone(600, 0.1, 'square', 0.2); },
-    playHit()      { this.playTone(150, 0.2, 'sawtooth', 0.3); },
-    playSelect()   { this.playTone(800, 0.05, 'square', 0.15); },
-    playDialogue() { this.playTone(500 + Math.random()*200, 0.03, 'square', 0.1); },
-    playBullet()   { this.playTone(200, 0.1, 'sawtooth', 0.15); },
-    playBossHit()  { this.playTone(100, 0.3, 'sawtooth', 0.4); },
-    playTrust()    { this.playTone(600, 0.1, 'sine', 0.2); 
-                     setTimeout(() => this.playTone(800, 0.15, 'sine', 0.2), 100); },
-    playSave()     { this.playTone(523, 0.1, 'sine', 0.2); 
-                     setTimeout(() => this.playTone(659, 0.1, 'sine', 0.2), 100);
-                     setTimeout(() => this.playTone(784, 0.15, 'sine', 0.2), 200); },
-    playDeath()    { this.playTone(300, 0.3, 'sawtooth', 0.3);
-                     setTimeout(() => this.playTone(200, 0.3, 'sawtooth', 0.3), 300);
-                     setTimeout(() => this.playTone(100, 0.5, 'sawtooth', 0.3), 600); },
-    playVictory()  { [523,659,784,1047].forEach((f,i) => 
-                     setTimeout(() => this.playTone(f, 0.2, 'sine', 0.3), i*150)); },
-
-    // Música procedural simples (loop)
-    musicInterval: null,
-    currentTrack: '',
-
-    playMusic(track) {
-        this.stopMusic();
-        this.currentTrack = track;
-
-        const patterns = {
-            'menu': { notes: [262,330,392,330], tempo: 400, type: 'sine', vol: 0.1 },
-            'phase1': { notes: [330,392,440,392,330,262], tempo: 300, type: 'sine', vol: 0.08 },
-            'phase2': { notes: [262,294,330,262,220,196], tempo: 350, type: 'triangle', vol: 0.08 },
-            'phase3': { notes: [220,262,196,220,175,196], tempo: 500, type: 'sine', vol: 0.06 },
-            'phaseFinal': { notes: [330,392,494,392,330,392,494,587], tempo: 250, type: 'triangle', vol: 0.08 },
-            'battle': { notes: [330,330,659,494,466,392,330,392], tempo: 150, type: 'square', vol: 0.1 },
-            'determination': { notes: [494,494,988,740,698,587,494,587], tempo: 200, type: 'square', vol: 0.12 },
-            'victory': { notes: [523,523,523,523,415,466,523,466,523], tempo: 200, type: 'sine', vol: 0.1 },
-            'gameover': { notes: [262,247,220,196], tempo: 600, type: 'triangle', vol: 0.08 }
-        };
-
-        const p = patterns[track];
-        if (!p) return;
-
-        let noteIndex = 0;
-        this.musicInterval = setInterval(() => {
-            this.playTone(p.notes[noteIndex % p.notes.length], p.tempo/1000 * 0.8, p.type, p.vol);
-            noteIndex++;
-        }, p.tempo);
-    },
-
-    stopMusic() {
-        if (this.musicInterval) {
-            clearInterval(this.musicInterval);
-            this.musicInterval = null;
-        }
-        this.currentTrack = '';
-    }
-};
-
-// ══════════════════════════════════════════════════════
-// SEÇÃO 4: SISTEMA DE DIÁLOGO
-// ══════════════════════════════════════════════════════
-
-const DialogueSystem = {
-    active: false,
-    lines: [],
-    currentLine: 0,
-    displayedText: '',
-    fullText: '',
-    charIndex: 0,
-    typingSpeed: 2,
-    speaker: '',
-    onComplete: null,
-    quickMessage: '',
-    quickTimer: 0,
-    isQuick: false,
-
-    startDialogue(speaker, lines, onComplete = null) {
-        this.active = true;
-        this.isQuick = false;
-        this.speaker = speaker;
-        this.lines = lines;
-        this.currentLine = 0;
-        this.onComplete = onComplete;
-        this.startLine(lines[0]);
-        gameState = 'dialogue';
-    },
-
-    startLine(text) {
-        this.fullText = text;
-        this.displayedText = '';
-        this.charIndex = 0;
-    },
-
-    showQuick(message) {
-        this.quickMessage = message;
-        this.quickTimer = 180; // 3 segundos
-        this.isQuick = true;
-    },
-
-    update() {
-        // Quick message
-        if (this.isQuick && this.quickTimer > 0) {
-            this.quickTimer--;
-            if (this.quickTimer <= 0) this.isQuick = false;
-        }
-
-        if (!this.active) return;
-
-        // Typing
-        if (this.charIndex < this.fullText.length) {
-            if (frameCount % this.typingSpeed === 0) {
-                this.displayedText += this.fullText[this.charIndex];
-                this.charIndex++;
-                if (this.fullText[this.charIndex-1] !== ' ')
-                    AudioSystem.playDialogue();
-            }
-        }
-    },
-
-    nextLine() {
-        if (this.charIndex < this.fullText.length) {
-            this.displayedText = this.fullText;
-            this.charIndex = this.fullText.length;
-            return;
-        }
-
-        this.currentLine++;
-        if (this.currentLine < this.lines.length) {
-            this.startLine(this.lines[this.currentLine]);
-        } else {
-            this.close();
-        }
-    },
-
-    close() {
-        this.active = false;
-        gameState = 'playing';
-        if (this.onComplete) this.onComplete();
-    },
-
-    draw(ctx) {
-        // Quick message
-        if (this.isQuick && this.quickTimer > 0) {
-            const alpha = Math.min(1, this.quickTimer / 30);
-            ctx.save();
-            ctx.globalAlpha = alpha;
-            ctx.fillStyle = 'rgba(0,0,0,0.8)';
-            ctx.fillRect(100, 20, GAME_CONFIG.width - 200, 50);
-            ctx.strokeStyle = '#4af';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(100, 20, GAME_CONFIG.width - 200, 50);
-            ctx.fillStyle = '#fff';
-            ctx.font = '16px Courier New';
-            ctx.textAlign = 'center';
-            ctx.fillText(this.quickMessage, GAME_CONFIG.width/2, 50);
-            ctx.restore();
-        }
-
-        if (!this.active) return;
-
-        // Dialogue box
-        const boxY = GAME_CONFIG.height - 140;
-        ctx.fillStyle = 'rgba(0,0,0,0.9)';
-        ctx.fillRect(50, boxY, GAME_CONFIG.width - 100, 120);
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(50, boxY, GAME_CONFIG.width - 100, 120);
-
-        // Speaker name
-        if (this.speaker) {
-            ctx.fillStyle = '#4af';
-            ctx.font = 'bold 16px Courier New';
-            ctx.textAlign = 'left';
-            ctx.fillText(this.speaker, 70, boxY + 25);
-        }
-
-        // Text
-        ctx.fillStyle = '#fff';
-        ctx.font = '14px Courier New';
-        ctx.textAlign = 'left';
-
-        const words = this.displayedText.split(' ');
-        let line = '';
-        let y = boxY + 50;
-        const maxWidth = GAME_CONFIG.width - 160;
-
-        for (const word of words) {
-            const test = line + word + ' ';
-            if (ctx.measureText(test).width > maxWidth) {
-                ctx.fillText(line, 70, y);
-                line = word + ' ';
-                y += 20;
-            } else {
-                line = test;
-            }
-        }
-        ctx.fillText(line, 70, y);
-
-        // Continue indicator
-        if (this.charIndex >= this.fullText.length) {
-            ctx.fillStyle = '#4af';
-            ctx.font = '12px Courier New';
-            ctx.textAlign = 'right';
-            const blink = Math.sin(Date.now() / 300) > 0;
-            if (blink) ctx.fillText('▼ Continuar', GAME_CONFIG.width - 70, boxY + 105);
-        }
-    }
-};
-
-// ══════════════════════════════════════════════════════
-// SEÇÃO 5: SISTEMA DE CONQUISTAS
-// ══════════════════════════════════════════════════════
-
-const AchievementSystem = {
-    list: [
-        { id: 'firstSteps', title: 'Primeiros Passos', desc: 'Complete a fase 1', secret: false, xp: 50 },
-        { id: 'digitalDetox', title: 'Desintoxicação Digital', desc: 'Derrote o Vício Digital', secret: false, xp: 100 },
-        { id: 'truthSeeker', title: 'Buscador da Verdade', desc: 'Derrote a Desinformação', secret: false, xp: 100 },
-        { id: 'bridgeBuilder', title: 'Construtor de Pontes', desc: 'Quebre o Isolamento', secret: false, xp: 100 },
-        { id: 'finalConfront', title: 'Confronto Final', desc: 'Chegue ao boss final', secret: false, xp: 150 },
-        { id: 'survivor', title: 'No Limite', desc: 'Sobreviva com menos de 10% de vida', secret: false, xp: 75 },
-        { id: 'completionist', title: 'Entre Todas as Linhas', desc: 'Complete o jogo', secret: false, xp: 300 },
-        { id: 'listener', title: 'Ouvinte', desc: 'Leia todos os diálogos de Lucas', secret: false, xp: 100 },
-        { id: 'speedRunner', title: 'Velocista', desc: 'Complete em menos de 30 min', secret: false, xp: 200 },
-        { id: 'saver', title: 'Precavido', desc: 'Use todos os checkpoints', secret: false, xp: 50 },
-        { id: 'peacefulHeart', title: 'Coração em Paz', desc: 'Vença o boss final sem atacar', secret: true, xp: 400, hint: 'A força nem sempre é a resposta...' },
-        { id: 'trueEnding', title: 'Final Verdadeiro', desc: 'Convença Lucas com diálogo', secret: true, xp: 500, hint: 'Palavras valem mais que golpes...' },
-        { id: 'pacifist', title: 'Rota Pacifista', desc: 'Use Mercy em todos os bosses', secret: true, xp: 350, hint: 'Existe um caminho sem violência?' },
-        { id: 'philosopher', title: 'Filósofo Moderno', desc: 'Converse com Lucas em cada fase', secret: true, xp: 200, hint: 'Alguém importante tem algo a dizer...' },
-        { id: 'noHitBoss1', title: 'Fora do Vício', desc: 'Boss 1 sem tomar dano', secret: true, xp: 250, hint: 'Sair ileso?' },
-        { id: 'noHitBoss2', title: 'Imune à Mentira', desc: 'Boss 2 sem tomar dano', secret: true, xp: 250, hint: 'A verdade protege.' },
-        { id: 'noHitBoss3', title: 'Empatia Pura', desc: 'Boss 3 sem tomar dano', secret: true, xp: 250, hint: 'Aproximar sem se machucar.' },
-        { id: 'trustMaxed', title: 'Confiança Total', desc: 'Maximize a confiança', secret: true, xp: 300, hint: 'Paciência constrói confiança.' },
-        { id: 'oldMemories', title: 'Velhas Memórias', desc: 'Use Agir 10x no boss final', secret: true, xp: 200, hint: 'O passado tem poder.' },
-        { id: 'brokenScreen', title: 'Tela Quebrada', desc: 'Morra 10x e vença', secret: true, xp: 150, hint: 'Persistência é tudo.' }
-    ],
-
-    notification: null,
-    notifTimer: 0,
-
-    unlock(id) {
-        if (SaveSystem.data.achievements[id]) return;
-        SaveSystem.data.achievements[id] = true;
-        const a = this.list.find(x => x.id === id);
-        if (a) {
-            this.notification = a;
-            this.notifTimer = 240;
-            console.log('🏆 ' + a.title);
-            AudioSystem.playVictory();
-        }
-    },
-
-    isUnlocked(id) {
-        return SaveSystem.data.achievements[id] === true;
-    },
-
-    getUnlockedCount() {
-        return Object.keys(SaveSystem.data.achievements).filter(
-            k => SaveSystem.data.achievements[k]).length;
-    },
-
-    update() {
-        if (this.notifTimer > 0) this.notifTimer--;
-    },
-
-    draw(ctx) {
-        if (this.notifTimer <= 0 || !this.notification) return;
-
-        const alpha = Math.min(1, this.notifTimer / 30);
-        const a = this.notification;
-
-        ctx.save();
-        ctx.globalAlpha = alpha;
-
-        // Background
-        ctx.fillStyle = a.secret ? 'rgba(255,200,0,0.9)' : 'rgba(50,200,50,0.9)';
-        ctx.fillRect(GAME_CONFIG.width - 320, 10, 310, 70);
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(GAME_CONFIG.width - 320, 10, 310, 70);
-
-        // Icon
-        ctx.fillStyle = '#fff';
-        ctx.font = '24px Courier New';
-        ctx.fillText('🏆', GAME_CONFIG.width - 305, 52);
-
-        // Title
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 14px Courier New';
-        ctx.textAlign = 'left';
-        ctx.fillText(a.title, GAME_CONFIG.width - 275, 35);
-
-        // Desc
-        ctx.font = '11px Courier New';
-        ctx.fillText(a.desc, GAME_CONFIG.width - 275, 55);
-
-        // XP
-        ctx.textAlign = 'right';
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 12px Courier New';
-        ctx.fillText('+' + a.xp + ' XP', GAME_CONFIG.width - 20, 55);
-
-        ctx.restore();
-    }
-};
-
-// ══════════════════════════════════════════════════════
-// SEÇÃO 6: SISTEMA DE EFEITOS
-// ══════════════════════════════════════════════════════
-
-const EffectsSystem = {
-    particles: [],
-
-    spawnHit(x, y, color = '#ff3333') {
-        for (let i = 0; i < 8; i++) {
-            const angle = (Math.PI * 2 / 8) * i;
-            this.particles.push({
-                x, y,
-                vx: Math.cos(angle) * (2 + Math.random()*3),
-                vy: Math.sin(angle) * (2 + Math.random()*3),
-                size: 3 + Math.random()*3,
-                color,
-                life: 30,
-                maxLife: 30
-            });
-        }
-    },
-
-    spawnDeath(x, y, color = '#ff3333') {
-        for (let i = 0; i < 20; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 1 + Math.random() * 5;
-            this.particles.push({
-                x, y,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed - 2,
-                size: 2 + Math.random()*5,
-                color,
-                life: 40 + Math.random()*20,
-                maxLife: 60,
-                gravity: 0.1
-            });
-        }
-    },
-
-    spawnSaveEffect(x, y) {
-        for (let i = 0; i < 12; i++) {
-            const angle = (Math.PI * 2 / 12) * i;
-            this.particles.push({
-                x: x + Math.cos(angle) * 20,
-                y: y + Math.sin(angle) * 20,
-                vx: Math.cos(angle) * 1,
-                vy: Math.sin(angle) * 1 - 1,
-                size: 3,
-                color: '#ffcc33',
-                life: 40,
-                maxLife: 40
-            });
-        }
-        AudioSystem.playSave();
-    },
-
-    spawnAchievement(x, y) {
-        const colors = ['#ffcc33','#fff','#ff8833','#33ccff'];
-        for (let i = 0; i < 20; i++) {
-            this.particles.push({
-                x: x + (Math.random()-0.5)*40,
-                y,
-                vx: (Math.random()-0.5) * 4,
-                vy: -3 - Math.random()*5,
-                size: 2 + Math.random()*4,
-                color: colors[Math.floor(Math.random()*colors.length)],
-                life: 50,
-                maxLife: 50,
-                gravity: 0.15
-            });
-        }
-    },
-
-    update() {
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            const p = this.particles[i];
-            p.x += p.vx;
-            p.y += p.vy;
-            if (p.gravity) p.vy += p.gravity;
-            p.life--;
-            if (p.life <= 0) this.particles.splice(i, 1);
-        }
-    },
-
-    draw(ctx) {
-        for (const p of this.particles) {
-            ctx.globalAlpha = p.life / p.maxLife;
-            ctx.fillStyle = p.color;
-            ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
-        }
-        ctx.globalAlpha = 1;
-    }
-};
-
-// ══════════════════════════════════════════════════════
-// SEÇÃO 7: PLAYER
-// ══════════════════════════════════════════════════════
-
-const player = {
-    x: 100, y: 300,
-    width: 24, height: 40,
-    vx: 0, vy: 0,
-    speed: 4,
-    jumpForce: -10,
-    health: 100,
-    maxHealth: 100,
-    isGrounded: false,
-    isDead: false,
-    facingRight: true,
-    invincible: false,
-    invincibleTimer: 0,
-    walkFrame: 0,
-
-    reset() {
-        this.x = 100;
-        this.y = 300;
-        this.vx = 0;
-        this.vy = 0;
-        this.health = this.maxHealth;
-        this.isDead = false;
-        this.invincible = false;
-    },
-
-    update(platforms) {
-        if (this.isDead) return;
-        if (gameState === 'battle' || gameState === 'cutscene') return;
-
-        // Movement
-        if (KEYS.left) {
-            this.vx = -this.speed;
-            this.facingRight = false;
-        } else if (KEYS.right) {
-            this.vx = this.speed;
-            this.facingRight = true;
-        } else {
-            this.vx = 0;
-        }
-
-        // Jump
-        if (KEYS.jump && this.isGrounded) {
-            this.vy = this.jumpForce;
-            this.isGrounded = false;
-            AudioSystem.playJump();
-        }
-
-        // Gravity
-        this.vy += GAME_CONFIG.gravity;
-
-        // Move
-        this.x += this.vx;
-        this.y += this.vy;
-
-        // Walk animation
-        if (Math.abs(this.vx) > 0.1) {
-            this.walkFrame += 0.15;
-        } else {
-            this.walkFrame = 0;
-        }
-
-        // Platform collision
-        this.isGrounded = false;
-        for (const p of platforms) {
-            if (this.x + this.width > p.x &&
-                this.x < p.x + p.width &&
-                this.y + this.height > p.y &&
-                this.y + this.height < p.y + p.height + 10 &&
-                this.vy >= 0)
-            {
-                this.y = p.y - this.height;
-                this.vy = 0;
-                this.isGrounded = true;
-            }
-        }
-
-        // World bounds
-        if (this.x < 0) this.x = 0;
-        if (this.x > GAME_CONFIG.width - this.width)
-            this.x = GAME_CONFIG.width - this.width;
-        if (this.y > GAME_CONFIG.height + 50) this.die();
-
-        // Invincibility
-        if (this.invincible) {
-            this.invincibleTimer--;
-            if (this.invincibleTimer <= 0) this.invincible = false;
-        }
-    },
-
-    takeDamage(amount) {
-        if (this.invincible || this.isDead) return;
-        this.health -= amount;
-        this.invincible = true;
-        this.invincibleTimer = 60;
-        AudioSystem.playHit();
-        EffectsSystem.spawnHit(this.x + this.width/2, this.y + this.height/2);
-
-        if (this.health / this.maxHealth <= 0.1)
-            AchievementSystem.unlock('survivor');
-
-        if (this.health <= 0) this.die();
-    },
-
-    heal(amount) {
-        this.health = Math.min(this.health + amount, this.maxHealth);
-    },
-
-    die() {
-        this.isDead = true;
-        this.health = 0;
-        AudioSystem.playDeath();
-        EffectsSystem.spawnDeath(this.x + this.width/2, this.y + this.height/2);
-        SaveSystem.data.totalDeaths++;
-
-        if (gameState === 'battle') {
-            BattleSystem.onPlayerDeath();
-        } else {
-            setTimeout(() => changeScene('death'), 1500);
-        }
-    },
-
-    draw(ctx) {
-        if (this.isDead) return;
-
-        // Blink when invincible
-        if (this.invincible && frameCount % 6 < 3) return;
-
-        ctx.save();
-        const flip = this.facingRight ? 1 : -1;
-        ctx.translate(this.x + this.width/2, this.y);
-        ctx.scale(flip, 1);
-
-        const legSwing = Math.sin(this.walkFrame * 8) * 4;
-        const armSwing = Math.sin(this.walkFrame * 8) * 3;
-        const breathe = Math.sin(Date.now()/500) * 0.5;
-
-        // Backpack
-        ctx.fillStyle = '#993333';
-        ctx.fillRect(-15, 5 + breathe, 10, 20);
-
-        // Legs
-        ctx.fillStyle = COLORS.pants;
-        ctx.fillRect(-7, 25, 6, 15 + legSwing);
-        ctx.fillRect(1, 25, 6, 15 - legSwing);
-
-        // Shoes
-        ctx.fillStyle = COLORS.shoe;
-        ctx.fillRect(-8, 38 + legSwing, 8, 4);
-        ctx.fillRect(0, 38 - legSwing, 8, 4);
-
-        // Body
-        ctx.fillStyle = COLORS.shirt;
-        ctx.fillRect(-9, 5 + breathe, 18, 22);
-
-        // Shirt stripe
-        ctx.fillStyle = '#2255aa';
-        ctx.fillRect(-9, 14 + breathe, 18, 3);
-
-        // Collar
-        ctx.fillStyle = '#ddd';
-        ctx.fillRect(-5, 5 + breathe, 10, 3);
-
-        // Arms
-        ctx.fillStyle = COLORS.shirt;
-        ctx.fillRect(-13, 8 + breathe + armSwing, 5, 16);
-        ctx.fillRect(8, 8 + breathe - armSwing, 5, 16);
-
-        // Hands
-        ctx.fillStyle = COLORS.skin;
-        ctx.fillRect(-13, 22 + breathe + armSwing, 5, 5);
-        ctx.fillRect(8, 22 + breathe - armSwing, 5, 5);
-
-        // Head
-        ctx.fillStyle = COLORS.skin;
-        ctx.fillRect(-9, -12, 18, 18);
-
-        // Hair
-        ctx.fillStyle = COLORS.hair;
-        ctx.fillRect(-10, -14, 20, 6);
-        ctx.fillRect(-10, -10, 6, 5); // fringe
-
-        // Eyes
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(-6, -6, 5, 5);
-        ctx.fillRect(1, -6, 5, 5);
-        ctx.fillStyle = '#3388ff';
-        ctx.fillRect(-5, -5, 3, 3);
-        ctx.fillRect(2, -5, 3, 3);
-
-        // Eyebrows
-        ctx.fillStyle = COLORS.hair;
-        ctx.fillRect(-6, -8, 5, 1);
-        ctx.fillRect(1, -8, 5, 1);
-
-        // Mouth
-        ctx.fillStyle = '#cc6666';
-        ctx.fillRect(-2, 1, 4, 1);
-
-        // Ears
-        ctx.fillStyle = COLORS.skin;
-        ctx.fillRect(-11, -6, 3, 5);
-        ctx.fillRect(8, -6, 3, 5);
-
-        ctx.restore();
-    }
-};
-
-// ══════════════════════════════════════════════════════
-// SEÇÃO 8: SOUL (Batalha)
-// ══════════════════════════════════════════════════════
-
-const soul = {
-    x: GAME_CONFIG.width/2,
-    y: GAME_CONFIG.height/2,
-    size: 12,
-    speed: 4,
-    active: false,
-    pulsePhase: 0,
-
-    // Battle box bounds
-    boxX: 280, boxY: 120,
-    boxW: 400, boxH: 250,
-
-    activate(x, y) {
-        this.x = x || this.boxX + this.boxW/2;
-        this.y = y || this.boxY + this.boxH/2;
-        this.active = true;
-    },
-
-    deactivate() {
-        this.active = false;
-    },
-
-    update() {
-        if (!this.active) return;
-
-        let dx = 0, dy = 0;
-        if (KEYS.left) dx = -this.speed;
-        if (KEYS.right) dx = this.speed;
-        if (KEYS.up) dy = -this.speed;
-        if (KEYS.down) dy = this.speed;
-
-        // Normalize diagonal
-        if (dx !== 0 && dy !== 0) {
-            dx *= 0.707;
-            dy *= 0.707;
-        }
-
-        this.x += dx;
-        this.y += dy;
-
-        // Clamp to battle box
-        this.x = Math.max(this.boxX + this.size, Math.min(this.boxX + this.boxW - this.size, this.x));
-        this.y = Math.max(this.boxY + this.size, Math.min(this.boxY + this.boxH - this.size, this.y));
-
-        this.pulsePhase += 0.1;
-    },
-
-    draw(ctx) {
-        if (!this.active) return;
-
-        const pulse = 1 + Math.sin(this.pulsePhase) * 0.15;
-        const s = this.size * pulse;
-
-        // Glow
-        ctx.fillStyle = 'rgba(255,50,80,0.2)';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, s * 1.8, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Heart shape (simple diamond)
-        ctx.fillStyle = '#ff1144';
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(Math.PI/4);
-        ctx.fillRect(-s/2, -s/2, s, s);
-        ctx.restore();
-
-        // Shine
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.fillRect(this.x - s/4, this.y - s/3, s/4, s/4);
-    },
-
-    checkCollision(bullet) {
-        const dx = this.x - bullet.x;
-        const dy = this.y - bullet.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        return dist < this.size + bullet.size;
-    }
-};
-
-// ══════════════════════════════════════════════════════
-// SEÇÃO 9: SISTEMA DE BATALHA
-// ══════════════════════════════════════════════════════
-
-const BattleSystem = {
-    active: false,
-    boss: null,
-    bullets: [],
-    isPlayerTurn: true,
-    enemyTurnTimer: 0,
-    enemyTurnDuration: 300,
-    selectedAction: 0,
-    actions: ['ATACAR', 'FALAR', 'AGIR', 'MERCY'],
-    tookDamageThisBoss: false,
-    attackedFinalBoss: false,
-    actCountFinal: 0,
-
-    buttons: [
-        { x: 170, y: 410, w: 120, h: 40, label: 'ATACAR', color: '#ff4444' },
-        { x: 320, y: 410, w: 120, h: 40, label: 'FALAR', color: '#44aaff' },
-        { x: 470, y: 410, w: 120, h: 40, label: 'AGIR', color: '#ffaa44' },
-        { x: 620, y: 410, w: 120, h: 40, label: 'MERCY', color: '#44ff88' }
-    ],
-
-    startBattle(boss) {
-        this.active = true;
-        this.boss = boss;
-        this.bullets = [];
-        this.isPlayerTurn = true;
-        this.tookDamageThisBoss = false;
-        this.attackedFinalBoss = false;
-        this.actCountFinal = 0;
-
-        gameState = 'battle';
-        SaveSystem.blockSave('Não é possível salvar durante a batalha!');
-
-        soul.activate();
-
-        if (boss.name === 'Lucas') {
-            AudioSystem.playMusic('determination');
-        } else {
-            AudioSystem.playMusic('battle');
-        }
-
-        DialogueSystem.showQuick('⚔️ ' + boss.name + ' apareceu!');
-    },
-
-    endBattle() {
-        this.active = false;
-        this.bullets = [];
-        soul.deactivate();
-        gameState = 'playing';
-        SaveSystem.unblockSave();
-
-        // Auto save after battle
-        setTimeout(() => {
-            if (!SaveSystem.saveBlocked) {
-                SaveSystem.save();
-                DialogueSystem.showQuick('💾 Progresso salvo!');
-            }
-        }, 1000);
-    },
-
-    onPlayerDeath() {
-        this.active = false;
-        this.bullets = [];
-        soul.deactivate();
-        SaveSystem.unblockSave();
-        SaveSystem.data.totalDeaths++;
-        setTimeout(() => changeScene('death'), 1500);
-    },
-
-    playerAttack() {
-        if (!this.isPlayerTurn) return;
-        this.boss.takeDamage(15);
-        if (this.boss.name === 'Lucas') {
-            this.attackedFinalBoss = true;
-        }
-        this.startEnemyTurn();
-    },
-
-    playerTalk() {
-        if (!this.isPlayerTurn) return;
-        this.boss.onTalk();
-        this.startEnemyTurn();
-    },
-
-    playerAct() {
-        if (!this.isPlayerTurn) return;
-        this.boss.onAct();
-        if (this.boss.name === 'Lucas') {
-            this.actCountFinal++;
-            if (this.actCountFinal >= 10)
-                AchievementSystem.unlock('oldMemories');
-        }
-        this.startEnemyTurn();
-    },
-
-    playerMercy() {
-        if (!this.isPlayerTurn) return;
-        this.boss.onMercy();
-        if (!this.active) return; // Boss may have ended battle
-        this.startEnemyTurn();
-    },
-
-    startEnemyTurn() {
-        this.isPlayerTurn = false;
-        this.enemyTurnTimer = this.enemyTurnDuration;
-        soul.activate();
-    },
-
-    update() {
-        if (!this.active) return;
-
-        soul.update();
-
-        // Enemy turn
-        if (!this.isPlayerTurn) {
-            this.enemyTurnTimer--;
-
-            // Boss attacks
-            this.boss.attack(this.bullets);
-
-            // Update bullets
-            for (let i = this.bullets.length - 1; i >= 0; i--) {
-                const b = this.bullets[i];
-                b.x += b.vx;
-                b.y += b.vy;
-                b.life--;
-
-                // Check collision with soul
-                if (soul.checkCollision(b)) {
-                    player.takeDamage(10);
-                    this.tookDamageThisBoss = true;
-                    this.bullets.splice(i, 1);
-                    continue;
-                }
-
-                // Remove dead bullets
-                if (b.life <= 0 ||
-                    b.x < soul.boxX - 50 || b.x > soul.boxX + soul.boxW + 50 ||
-                    b.y < soul.boxY - 50 || b.y > soul.boxY + soul.boxH + 50) {
-                    this.bullets.splice(i, 1);
-                }
-            }
-
-            // End enemy turn
-            if (this.enemyTurnTimer <= 0) {
-                this.isPlayerTurn = true;
-                this.bullets = [];
-            }
-        }
-    },
-
-    handleClick(mx, my) {
-        if (!this.isPlayerTurn) return;
-
-        for (let i = 0; i < this.buttons.length; i++) {
-            const b = this.buttons[i];
-            if (mx >= b.x && mx <= b.x + b.w &&
-                my >= b.y && my <= b.y + b.h) {
-                AudioSystem.playSelect();
-                switch(i) {
-                    case 0: this.playerAttack(); break;
-                    case 1: this.playerTalk(); break;
-                    case 2: this.playerAct(); break;
-                    case 3: this.playerMercy(); break;
-                }
-            }
-        }
-    },
-
-    draw(ctx) {
-        if (!this.active) return;
-
-        // Battle box
-        ctx.fillStyle = 'rgba(0,0,0,0.95)';
-        ctx.fillRect(soul.boxX - 5, soul.boxY - 5, soul.boxW + 10, soul.boxH + 10);
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(soul.boxX, soul.boxY, soul.boxW, soul.boxH);
-
-        // Boss info
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 18px Courier New';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.boss.name, GAME_CONFIG.width/2, 30);
-
-        // Boss HP bar
-        const hpPercent = this.boss.health / this.boss.maxHealth;
-        ctx.fillStyle = '#333';
-        ctx.fillRect(330, 40, 300, 15);
-        ctx.fillStyle = hpPercent > 0.5 ? '#44ff44' :
-                        hpPercent > 0.25 ? '#ffaa44' : '#ff4444';
-        ctx.fillRect(330, 40, 300 * hpPercent, 15);
-        ctx.strokeStyle = '#fff';
-        ctx.strokeRect(330, 40, 300, 15);
-
-        // HP text
-        ctx.font = '12px Courier New';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(`HP: ${this.boss.health}/${this.boss.maxHealth}`,
-            GAME_CONFIG.width/2, 80);
-
-        // Trust bar (final boss only)
-        if (this.boss.trustPoints !== undefined) {
-            const trustPercent = this.boss.trustPoints / this.boss.trustRequired;
-            ctx.fillStyle = '#333';
-            ctx.fillRect(330, 90, 300, 10);
-            ctx.fillStyle = '#ffcc33';
-            ctx.fillRect(330, 90, 300 * trustPercent, 10);
-            ctx.strokeStyle = '#ffcc33';
-            ctx.strokeRect(330, 90, 300, 10);
-            ctx.font = '11px Courier New';
-            ctx.fillStyle = '#ffcc33';
-            ctx.fillText(`Confiança: ${Math.round(trustPercent*100)}%`,
-                GAME_CONFIG.width/2, 115);
-        }
-
-        // Boss visual
-        this.boss.draw(ctx);
-
-        // Bullets
-        for (const b of this.bullets) {
-            ctx.fillStyle = b.color || '#ff4444';
-            ctx.beginPath();
-            ctx.arc(b.x, b.y, b.size || 4, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Soul
-        soul.draw(ctx);
-
-        // Action buttons (player turn only)
-        if (this.isPlayerTurn) {
-            for (const btn of this.buttons) {
-                // Hover detection
-                const hover = mouseX >= btn.x && mouseX <= btn.x + btn.w &&
-                              mouseY >= btn.y && mouseY <= btn.y + btn.h;
-
-                ctx.fillStyle = hover ? btn.color : 'rgba(0,0,0,0.8)';
-                ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
-                ctx.strokeStyle = btn.color;
-                ctx.lineWidth = 2;
-                ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
-
-                ctx.fillStyle = hover ? '#000' : btn.color;
-                ctx.font = 'bold 14px Courier New';
-                ctx.textAlign = 'center';
-                ctx.fillText(btn.label, btn.x + btn.w/2, btn.y + btn.h/2 + 5);
-            }
-
-            ctx.fillStyle = '#888';
-            ctx.font = '12px Courier New';
-            ctx.textAlign = 'center';
-            ctx.fillText('Escolha sua ação', GAME_CONFIG.width/2, 475);
-        } else {
-            ctx.fillStyle = '#ff4444';
-            ctx.font = 'bold 14px Courier New';
-            ctx.textAlign = 'center';
-            ctx.fillText('⚠️ DESVIE DOS ATAQUES! ⚠️', GAME_CONFIG.width/2, 440);
-        }
-
-        // Player HP
-        ctx.fillStyle = '#333';
-        ctx.fillRect(50, 490, 200, 15);
-        ctx.fillStyle = '#ff4444';
-        ctx.fillRect(50, 490, 200 * (player.health / player.maxHealth), 15);
-        ctx.strokeStyle = '#fff';
-        ctx.strokeRect(50, 490, 200, 15);
-        ctx.fillStyle = '#fff';
-        ctx.font = '12px Courier New';
-        ctx.textAlign = 'left';
-        ctx.fillText(`❤️ ${player.health}/${player.maxHealth}`, 55, 525);
-    }
-};
-
-// ══════════════════════════════════════════════════════
-// SEÇÃO 10: BOSSES
-// ══════════════════════════════════════════════════════
-
-function createBoss1() {
-    return {
-        name: 'Vício Digital',
-        health: 80, maxHealth: 80,
-        talkCount: 0, mercyCount: 0,
-        canBeMercy: false,
-        attackTimer: 0,
-        bossIndex: 0,
-
-        talkLines: [
-            "Não consigo parar... só mais uma notificação...",
-            "Por que você me incomoda? Estou ocupado...",
-            "Talvez você esteja certo... mas é tão difícil parar.",
-            "Eu já perdi a noção do tempo...",
-            "Meu celular é meu mundo agora...",
-            "Eu esqueci como é conversar cara a cara..."
-        ],
-
-        deathStory: [
-            "Você destruiu o Vício Digital...",
-            "Mas ele não era um monstro.",
-            "Era alguém preso em notificações infinitas.",
-            "Esquecendo de comer, dormir, conversar.",
-            "A lição permanece: use a tecnologia com sabedoria."
-        ],
-
-        mercyStory: [
-            "Você deu uma chance para o Vício Digital...",
-            "Ele está mudando. Reduzindo o tempo de tela.",
-            "Conversando mais com as pessoas.",
-            "A tecnologia não é o inimigo. O excesso é."
-        ],
-
-        attack(bullets) {
-            this.attackTimer++;
-            if (this.attackTimer % 15 === 0) {
-                const angle = (Math.random() - 0.5) * Math.PI;
-                bullets.push({
-                    x: GAME_CONFIG.width/2 + (Math.random()-0.5)*100,
-                    y: soul.boxY + 10,
-                    vx: Math.sin(angle) * 3,
-                    vy: 2 + Math.random() * 2,
-                    size: 4,
-                    color: '#00ccff',
-                    life: 200
-                });
-            }
-        },
-
-        onTalk() {
-            this.talkCount++;
-            const idx = Math.min(this.talkCount-1, this.talkLines.length-1);
-            DialogueSystem.showQuick(this.talkLines[idx]);
-            if (this.talkCount >= 3) {
-                this.canBeMercy = true;
-                setTimeout(() => DialogueSystem.showQuick(
-                    "Talvez... talvez eu consiga mudar."), 2500);
-            }
-        },
-
-        onAct() {
-            DialogueSystem.showQuick("Eu tentei desligar uma vez... não consegui.");
-        },
-
-        onMercy() {
-            if (!this.canBeMercy) {
-                DialogueSystem.showQuick("Você não entende... eu preciso disso.");
-                return;
-            }
-            this.mercyCount++;
-            if (this.mercyCount >= 2) {
-                this.endBattle(true);
-            } else {
-                DialogueSystem.showQuick("Você está me dando uma chance...");
-            }
-        },
-
-        takeDamage(amount) {
-            this.health -= amount;
-            AudioSystem.playBossHit();
-            EffectsSystem.spawnHit(GAME_CONFIG.width/2, 200, '#00ccff');
-            if (this.health <= 0) this.endBattle(false);
-        },
-
-        endBattle(mercy) {
-            SaveSystem.setBossDefeated(0, mercy);
-            if (!BattleSystem.tookDamageThisBoss)
-                AchievementSystem.unlock('noHitBoss1');
-            AchievementSystem.unlock('digitalDetox');
-            AchievementSystem.unlock('firstSteps');
-            BattleSystem.endBattle();
-            showBossStory(this, mercy);
-        },
-
-        draw(ctx) {
-            const cx = GAME_CONFIG.width/2;
-            const cy = 190;
-            const pulse = Math.sin(Date.now()/300) * 2;
-
-            // Screen/face
-            ctx.fillStyle = '#001133';
-            ctx.fillRect(cx-25, cy-35+pulse, 50, 40);
-            ctx.fillStyle = '#00ccff';
-            ctx.strokeStyle = '#00ccff';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(cx-25, cy-35+pulse, 50, 40);
-
-            // Notification icons
-            const blink = Math.sin(Date.now()/500) > 0;
-            if (blink) {
-                ctx.fillStyle = '#ff0000';
-                ctx.fillRect(cx-15, cy-25+pulse, 6, 6);
-                ctx.fillStyle = '#ffcc00';
-                ctx.fillRect(cx-3, cy-25+pulse, 6, 6);
-                ctx.fillStyle = '#00ff00';
-                ctx.fillRect(cx+9, cy-25+pulse, 6, 6);
-            }
-
-            // Body
-            ctx.fillStyle = '#0a0a2e';
-            ctx.fillRect(cx-20, cy+5+pulse, 40, 35);
-
-            // Arms (cables)
-            ctx.fillStyle = '#00ccff';
-            ctx.fillRect(cx-30, cy+10+pulse, 8, 25);
-            ctx.fillRect(cx+22, cy+10+pulse, 8, 25);
-
-            // Legs
-            ctx.fillStyle = '#0a0a2e';
-            ctx.fillRect(cx-12, cy+40+pulse, 10, 20);
-            ctx.fillRect(cx+2, cy+40+pulse, 10, 20);
-        }
+SV.load();
+
+// ════════ AUDIO ════════
+const AU={
+  x:null,
+  init(){try{this.x=new(window.AudioContext||window.webkitAudioContext)}catch(e){}},
+  res(){if(this.x&&this.x.state==="suspended")this.x.resume()},
+  t(f=440,d=.08,tp="square",v=.02){
+    if(!this.x)return;
+    const o=this.x.createOscillator(),g=this.x.createGain();
+    o.type=tp;o.frequency.value=f;g.gain.value=v;
+    g.gain.exponentialRampToValueAtTime(.0001,this.x.currentTime+d);
+    o.connect(g);g.connect(this.x.destination);o.start();o.stop(this.x.currentTime+d)
+  },
+  sel(){this.t(700,.04,"square",.025)},
+  hit(){this.t(120,.16,"sawtooth",.04)},
+  txt(){this.t(480+Math.random()*140,.025,"square",.012)},
+  mrc(){this.t(560,.07,"sine",.03);setTimeout(()=>this.t(760,.1,"sine",.03),70)},
+  sv(){this.t(523,.06,"sine",.025);setTimeout(()=>this.t(659,.06,"sine",.025),60);setTimeout(()=>this.t(784,.12,"sine",.025),120)},
+  dmg(){this.t(200,.1,"sawtooth",.03);setTimeout(()=>this.t(100,.15,"sawtooth",.03),100)},
+  die(){this.t(300,.3,"sawtooth",.03);setTimeout(()=>this.t(200,.3,"sawtooth",.03),300);setTimeout(()=>this.t(100,.5,"sawtooth",.03),600)},
+  win(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>this.t(f,.2,"sine",.03),i*150))},
+  lvl(){this.t(440,.05,"sine",.02);setTimeout(()=>this.t(554,.05,"sine",.02),50);setTimeout(()=>this.t(659,.1,"sine",.02),100)},
+  mi:null,mt:"",
+  playM(track){
+    this.stopM();this.mt=track;
+    const patterns={
+      menu:{n:[262,330,392,330,262,220],t:400,tp:"sine",v:.008},
+      world1:{n:[330,392,440,392,330,262,294,330],t:280,tp:"sine",v:.007},
+      world2:{n:[262,294,330,262,220,196,220,262],t:320,tp:"triangle",v:.007},
+      world3:{n:[220,262,196,220,175,196,220,175],t:450,tp:"sine",v:.005},
+      worldF:{n:[330,392,494,392,330,392,494,587],t:230,tp:"triangle",v:.007},
+      battle:{n:[330,330,659,494,466,392,330,392,466,494],t:140,tp:"square",v:.009},
+      final:{n:[494,494,988,740,698,587,494,587,698,740],t:180,tp:"square",v:.011},
+      victory:{n:[523,523,523,523,415,466,523,466,523],t:200,tp:"sine",v:.008},
+      sad:{n:[262,247,220,196,175,196,220,196],t:500,tp:"triangle",v:.006}
     };
-}
-
-function createBoss2() {
-    return {
-        name: 'Desinformação',
-        health: 120, maxHealth: 120,
-        talkCount: 0, mercyCount: 0,
-        canBeMercy: false,
-        attackTimer: 0,
-        bossIndex: 1,
-
-        talkLines: [
-            "A verdade? Há tantas versões dela...",
-            "Se todos acreditam, então é real, não é?",
-            "Eu só compartilho o que as pessoas querem ouvir...",
-            "Mentiras são mais confortáveis que verdades...",
-            "Eu já magoei muita gente sem querer...",
-            "Talvez eu precise parar de espalhar boatos..."
-        ],
-
-        deathStory: [
-            "Você destruiu a Desinformação...",
-            "Mas era apenas alguém perdido em mentiras.",
-            "Sempre verifique as fontes.",
-            "Não acredite em tudo que aparece na tela."
-        ],
-
-        mercyStory: [
-            "A Desinformação entendeu o valor da verdade.",
-            "Começando a verificar fatos antes de compartilhar.",
-            "A internet é poderosa, mas precisa de responsabilidade."
-        ],
-
-        attack(bullets) {
-            this.attackTimer++;
-            // Spread pattern
-            if (this.attackTimer % 25 === 0) {
-                const count = 5;
-                const spread = Math.PI / 3;
-                for (let i = 0; i < count; i++) {
-                    const angle = -spread/2 + (spread/(count-1)) * i + Math.PI/2;
-                    bullets.push({
-                        x: GAME_CONFIG.width/2,
-                        y: soul.boxY + 20,
-                        vx: Math.cos(angle) * 2.5,
-                        vy: Math.sin(angle) * 2.5,
-                        size: 4,
-                        color: '#ff4444',
-                        life: 200
-                    });
-                }
-            }
-        },
-
-        onTalk() {
-            this.talkCount++;
-            const idx = Math.min(this.talkCount-1, this.talkLines.length-1);
-            DialogueSystem.showQuick(this.talkLines[idx]);
-            if (this.talkCount >= 4) {
-                this.canBeMercy = true;
-                setTimeout(() => DialogueSystem.showQuick(
-                    "Você está me fazendo pensar... isso é bom."), 2500);
-            }
-        },
-
-        onAct() {
-            DialogueSystem.showQuick("Verificar fontes... é uma boa ideia.");
-        },
-
-        onMercy() {
-            if (!this.canBeMercy) {
-                DialogueSystem.showQuick("As pessoas precisam dessas mentiras.");
-                return;
-            }
-            this.mercyCount++;
-            if (this.mercyCount >= 2) {
-                this.endBattle(true);
-            } else {
-                DialogueSystem.showQuick("Talvez eu possa verificar as fontes primeiro.");
-            }
-        },
-
-        takeDamage(amount) {
-            this.health -= amount;
-            AudioSystem.playBossHit();
-            EffectsSystem.spawnHit(GAME_CONFIG.width/2, 200, '#ff4444');
-            if (this.health <= 0) this.endBattle(false);
-        },
-
-        endBattle(mercy) {
-            SaveSystem.setBossDefeated(1, mercy);
-            if (!BattleSystem.tookDamageThisBoss)
-                AchievementSystem.unlock('noHitBoss2');
-            AchievementSystem.unlock('truthSeeker');
-            BattleSystem.endBattle();
-            showBossStory(this, mercy);
-        },
-
-        draw(ctx) {
-            const cx = GAME_CONFIG.width/2;
-            const cy = 190;
-            const distort = Math.sin(Date.now()/200) * 2;
-
-            // Multiple masks
-            ctx.fillStyle = '#888';
-            ctx.fillRect(cx-40, cy-20+distort, 15, 15);
-            ctx.fillRect(cx+25, cy-15-distort, 12, 12);
-
-            // Main face (mask)
-            ctx.fillStyle = '#ffaa33';
-            ctx.fillRect(cx-20, cy-30, 40, 30);
-            ctx.fillStyle = '#000';
-            ctx.fillRect(cx-12, cy-24, 6, 6);
-            ctx.fillRect(cx+6, cy-24, 6, 6);
-            ctx.fillRect(cx-8, cy-12, 16, 3);
-
-            // Body (fragmented)
-            ctx.fillStyle = '#cc3333';
-            ctx.fillRect(cx-18, cy+2, 36, 35);
-            ctx.fillStyle = '#661111';
-            ctx.fillRect(cx-10+distort, cy+10, 15, 15);
-
-            // Arms
-            ctx.fillStyle = '#661111';
-            ctx.fillRect(cx-28, cy+5+distort, 10, 28);
-            ctx.fillRect(cx+18, cy+5-distort, 10, 28);
-
-            // Legs
-            ctx.fillStyle = '#cc3333';
-            ctx.fillRect(cx-12, cy+37, 10, 20);
-            ctx.fillRect(cx+2, cy+37, 10, 20);
-        }
-    };
-}
-
-function createBoss3() {
-    return {
-        name: 'Isolamento Social',
-        health: 150, maxHealth: 150,
-        talkCount: 0, mercyCount: 0,
-        canBeMercy: false,
-        attackTimer: 0,
-        phase: 1,
-        spiralAngle: 0,
-        bossIndex: 2,
-        transformed: false,
-
-        talkLines: [
-            "Me deixa em paz... como todo mundo faz.",
-            "Por que você se importa agora?",
-            "Eu só não queria ser esquecido.",
-            "Talvez... talvez eu possa tentar de novo.",
-            "Você está certo... eu preciso de pessoas.",
-            "Eu sinto falta de conversar com alguém..."
-        ],
-
-        deathStory: [
-            "Você destruiu o Isolamento Social...",
-            "Mas era alguém que construiu muros ao redor de si.",
-            "Não deixe que telas substituam abraços.",
-            "Mantenha contato com as pessoas reais."
-        ],
-
-        mercyStory: [
-            "Você quebrou o isolamento... e abriu portas.",
-            "Ele está saindo de casa, conversando com amigos.",
-            "A tecnologia deve conectar, não isolar."
-        ],
-
-        attack(bullets) {
-            this.attackTimer++;
-
-            if (this.phase === 1) {
-                // Circle pattern
-                if (this.attackTimer % 30 === 0) {
-                    const count = 8;
-                    for (let i = 0; i < count; i++) {
-                        const angle = (Math.PI * 2 / count) * i;
-                        bullets.push({
-                            x: GAME_CONFIG.width/2,
-                            y: 200,
-                            vx: Math.cos(angle) * 2,
-                            vy: Math.sin(angle) * 2,
-                            size: 4,
-                            color: '#8833ff',
-                            life: 200
-                        });
-                    }
-                }
-            } else {
-                // Spiral pattern
-                if (this.attackTimer % 8 === 0) {
-                    this.spiralAngle += 15;
-                    const rad = this.spiralAngle * Math.PI / 180;
-                    bullets.push({
-                        x: GAME_CONFIG.width/2,
-                        y: 200,
-                        vx: Math.cos(rad) * 2.5,
-                        vy: Math.sin(rad) * 2.5,
-                        size: 4,
-                        color: '#ff33aa',
-                        life: 200
-                    });
-                }
-            }
-        },
-
-        takeDamage(amount) {
-            this.health -= amount;
-            AudioSystem.playBossHit();
-            EffectsSystem.spawnHit(GAME_CONFIG.width/2, 200, '#8833ff');
-
-            // TRANSFORMATION at 50%
-            if (this.health <= this.maxHealth / 2 && this.phase === 1) {
-                this.phase = 2;
-                this.transformed = true;
-                DialogueSystem.showQuick("Você não entende como é estar sozinho!");
-                setTimeout(() => DialogueSystem.showQuick(
-                    "FASE 2 - O Isolamento se aprofunda!"), 2500);
-                EffectsSystem.spawnDeath(GAME_CONFIG.width/2, 200, '#8833ff');
-            }
-
-            if (this.health <= 0) this.endBattle(false);
-        },
-
-        onTalk() {
-            this.talkCount++;
-            const idx = Math.min(this.talkCount-1, this.talkLines.length-1);
-            DialogueSystem.showQuick(this.talkLines[idx]);
-            if (this.talkCount >= 4) {
-                this.canBeMercy = true;
-                setTimeout(() => DialogueSystem.showQuick(
-                    "Ok... eu aceito sua ajuda."), 2500);
-            }
-        },
-
-        onAct() {
-            const memories = [
-                "Lembrar de tempos melhores...",
-                "Quando havia pessoas ao seu redor...",
-                "Antes dos muros digitais."
-            ];
-            DialogueSystem.showQuick(memories[Math.floor(Math.random()*memories.length)]);
-        },
-
-        onMercy() {
-            if (!this.canBeMercy) {
-                DialogueSystem.showQuick("Você precisa me entender antes de me perdoar.");
-                return;
-            }
-            this.endBattle(true);
-        },
-
-        endBattle(mercy) {
-            SaveSystem.setBossDefeated(2, mercy);
-            if (!BattleSystem.tookDamageThisBoss)
-                AchievementSystem.unlock('noHitBoss3');
-            AchievementSystem.unlock('bridgeBuilder');
-            BattleSystem.endBattle();
-            showBossStory(this, mercy);
-        },
-
-        draw(ctx) {
-            const cx = GAME_CONFIG.width/2;
-            const cy = 190;
-            const float = Math.sin(Date.now()/800) * 3;
-            const color = this.phase === 2 ? '#ff33aa' : '#8833ff';
-
-            // Bubble
-            ctx.strokeStyle = this.phase === 2 
-                ? 'rgba(255,50,170,0.5)' : 'rgba(136,51,255,0.3)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(cx, cy + float, 45, 0, Math.PI * 2);
-            ctx.stroke();
-
-            // Body
-            ctx.fillStyle = this.phase === 2 ? '#330055' : '#332255';
-            ctx.fillRect(cx-15, cy-5+float, 30, 30);
-
-            // Head
-            ctx.fillStyle = this.phase === 2 ? '#9966cc' : '#667799';
-            ctx.fillRect(cx-12, cy-20+float, 24, 20);
-
-            // Sad eyes
-            ctx.fillStyle = '#000';
-            ctx.fillRect(cx-8, cy-14+float, 5, 3);
-            ctx.fillRect(cx+3, cy-14+float, 5, 3);
-
-            // Tear
-            ctx.fillStyle = '#66aaff';
-            ctx.fillRect(cx-7, cy-9+float, 2, 5);
-
-            // Arms hugging self
-            ctx.fillStyle = this.phase === 2 ? '#330055' : '#332255';
-            ctx.fillRect(cx-22, cy+float, 8, 22);
-            ctx.fillRect(cx+14, cy+float, 8, 22);
-
-            // Legs
-            ctx.fillRect(cx-10, cy+25+float, 8, 15);
-            ctx.fillRect(cx+2, cy+25+float, 8, 15);
-
-            // Phase 2 glow
-            if (this.phase === 2) {
-                ctx.fillStyle = 'rgba(255,50,170,0.1)';
-                ctx.beginPath();
-                ctx.arc(cx, cy + float, 55, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-    };
-}
-
-function createFinalBoss() {
-    return {
-        name: 'Lucas',
-        health: 200, maxHealth: 200,
-        trustPoints: 0, trustRequired: 5,
-        talkCount: 0, mercyCount: 0,
-        canBeSaved: false,
-        attackTimer: 0,
-        bossIndex: 3,
-
-        talkLines: [
-            "Você não entende o que estou construindo...",
-            "A tecnologia vai resolver tudo!",
-            "Eu só quero um mundo melhor...",
-            "Mas... e as pessoas que ficaram pra trás?",
-            "Eu... esqueci delas, não esqueci?",
-            "Talvez eu precise repensar tudo isso..."
-        ],
-
-        deathStory: [
-            "Você destruiu Lucas...",
-            "Mas ele era apenas alguém perdido no caminho.",
-            "As pessoas importam mais que algoritmos.",
-            "As conexões humanas valem mais que curtidas.",
-            "Talvez houvesse outro caminho..."
-        ],
-
-        mercyStory: [
-            "Você salvou Lucas... e salvou a amizade.",
-            "Ele está mudando. Redescobrindo o valor das conversas.",
-            "Dos abraços. Das risadas compartilhadas.",
-            "A tecnologia é uma ferramenta, não uma substituta.",
-            "A escolha... sempre foi sua."
-        ],
-
-        attack(bullets) {
-            this.attackTimer++;
-            let rate, speed;
-
-            if (this.trustPoints < 2) {
-                rate = 12; speed = 3.5;
-            } else if (this.trustPoints < 4) {
-                rate = 20; speed = 2.5;
-            } else {
-                rate = 35; speed = 1.5;
-            }
-
-            if (this.attackTimer % rate === 0) {
-                const dx = soul.x - GAME_CONFIG.width/2;
-                const dy = soul.y - 200;
-                const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-                bullets.push({
-                    x: GAME_CONFIG.width/2,
-                    y: 200,
-                    vx: (dx/dist) * speed,
-                    vy: (dy/dist) * speed,
-                    size: 5,
-                    color: '#00ff66',
-                    life: 200
-                });
-            }
-        },
-
-        onTalk() {
-            this.talkCount++;
-            this.trustPoints = Math.min(this.trustPoints + 1, this.trustRequired);
-            const idx = Math.min(this.talkCount-1, this.talkLines.length-1);
-            DialogueSystem.showQuick(this.talkLines[idx]);
-            AudioSystem.playTrust();
-
-            if (this.trustPoints >= this.trustRequired) {
-                this.canBeSaved = true;
-                AchievementSystem.unlock('trustMaxed');
-                setTimeout(() => DialogueSystem.showQuick(
-                    "Eu... preciso pensar no que você disse."), 2500);
-            }
-        },
-
-        onAct() {
-            const memories = [
-                "Você lembra quando a gente jogava bola sem celular?",
-                "Nós costumávamos conversar por horas...",
-                "Você disse que nunca me abandonaria.",
-                "Lembra do dia que ficamos olhando as estrelas?",
-                "Aquele verão sem internet... foi o melhor."
-            ];
-            DialogueSystem.showQuick(memories[Math.floor(Math.random()*memories.length)]);
-            this.trustPoints = Math.min(this.trustPoints + 1, this.trustRequired);
-            AudioSystem.playTrust();
-        },
-
-        onMercy() {
-            if (!this.canBeSaved) {
-                const lines = [
-                    "Não me atrapalhe!",
-                    "Você está me impedindo!",
-                    "Por que insiste?!"
-                ];
-                DialogueSystem.showQuick(lines[Math.min(this.mercyCount, lines.length-1)]);
-                this.mercyCount++;
-                return;
-            }
-            this.endBattle(true);
-        },
-
-        takeDamage(amount) {
-            this.health -= amount;
-            BattleSystem.attackedFinalBoss = true;
-            AudioSystem.playBossHit();
-            EffectsSystem.spawnHit(GAME_CONFIG.width/2, 200, '#00ff66');
-            if (this.health <= 0) this.endBattle(false);
-        },
-
-        endBattle(mercy) {
-            SaveSystem.setBossDefeated(3, mercy);
-
-            if (mercy) {
-                AchievementSystem.unlock('trueEnding');
-                if (!BattleSystem.attackedFinalBoss)
-                    AchievementSystem.unlock('peacefulHeart');
-                // Check pacifist
-                if (SaveSystem.data.boss1Mercy && SaveSystem.data.boss2Mercy &&
-                    SaveSystem.data.boss3Mercy)
-                    AchievementSystem.unlock('pacifist');
-            }
-
-            AchievementSystem.unlock('completionist');
-            AchievementSystem.unlock('finalConfront');
-
-            if (SaveSystem.data.totalDeaths >= 10)
-                AchievementSystem.unlock('brokenScreen');
-
-            BattleSystem.endBattle();
-            showBossStory(this, mercy);
-        },
-
-        draw(ctx) {
-            const cx = GAME_CONFIG.width/2;
-            const cy = 190;
-            const glow = Math.sin(Date.now()/400) * 0.1;
-
-            // Aura
-            ctx.fillStyle = `rgba(0,255,100,${0.05 + glow})`;
-            ctx.beginPath();
-            ctx.arc(cx, cy, 50, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Legs
-            ctx.fillStyle = '#0a0a22';
-            ctx.fillRect(cx-10, cy+25, 8, 20);
-            ctx.fillRect(cx+2, cy+25, 8, 20);
-            ctx.fillStyle = '#000';
-            ctx.fillRect(cx-11, cy+43, 10, 4);
-            ctx.fillRect(cx+1, cy+43, 10, 4);
-
-            // Body (tech coat)
-            ctx.fillStyle = '#111';
-            ctx.fillRect(cx-18, cy-5, 36, 32);
-            ctx.fillStyle = '#00ff66';
-            ctx.fillRect(cx-8, cy+5, 16, 3);
-            ctx.fillRect(cx-2, cy-2, 4, 15);
-
-            // Coat sides
-            ctx.fillStyle = '#0a0a15';
-            ctx.fillRect(cx-22, cy-3, 6, 30);
-            ctx.fillRect(cx+16, cy-3, 6, 30);
-
-            // Arms
-            ctx.fillStyle = '#111';
-            ctx.fillRect(cx-26, cy, 6, 24);
-            ctx.fillRect(cx+20, cy, 6, 24);
-            ctx.fillStyle = '#ffcc99';
-            ctx.fillRect(cx-26, cy+22, 6, 6);
-            ctx.fillRect(cx+20, cy+22, 6, 6);
-
-            // Head
-            ctx.fillStyle = '#ffcc99';
-            ctx.fillRect(cx-12, cy-25, 24, 22);
-
-            // Hair
-            ctx.fillStyle = '#000';
-            ctx.fillRect(cx-13, cy-28, 26, 7);
-            ctx.fillRect(cx-13, cy-23, 5, 10);
-            ctx.fillRect(cx+8, cy-23, 5, 10);
-
-            // Visor
-            ctx.fillStyle = 'rgba(0,255,100,0.4)';
-            ctx.fillRect(cx-14, cy-18, 28, 8);
-            ctx.strokeStyle = '#00ff66';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(cx-14, cy-18, 28, 8);
-
-            // Eyes behind visor
-            ctx.fillStyle = '#00ff66';
-            ctx.fillRect(cx-8, cy-16, 4, 4);
-            ctx.fillRect(cx+4, cy-16, 4, 4);
-        }
-    };
-}
-
-// ══════════════════════════════════════════════════════
-// SEÇÃO 11: BOSS STORY
-// ══════════════════════════════════════════════════════
-
-function showBossStory(boss, mercy) {
-    const story = mercy ? boss.mercyStory : boss.deathStory;
-    const title = mercy
-        ? `A Redenção de ${boss.name}`
-        : `O Fim de ${boss.name}`;
-
-    gameState = 'story';
-
-    currentStory = {
-        title,
-        lines: story,
-        currentLine: 0,
-        timer: 0,
-        displayedLines: [],
-        boss,
-        mercy,
-        complete: false
-    };
-}
-
-let currentStory = null;
-
-function updateStory() {
-    if (!currentStory || currentStory.complete) return;
-
-    currentStory.timer++;
-
-    if (currentStory.timer % 120 === 0 &&
-        currentStory.currentLine < currentStory.lines.length) {
-        currentStory.displayedLines.push(
-            currentStory.lines[currentStory.currentLine]);
-        currentStory.currentLine++;
-    }
-
-    if (currentStory.currentLine >= currentStory.lines.length &&
-        currentStory.timer > currentStory.lines.length * 120 + 120) {
-        currentStory.complete = true;
+    const p=patterns[track];if(!p)return;
+    let i=0;
+    this.mi=setInterval(()=>{this.t(p.n[i%p.n.length],p.t/1000*.8,p.tp,p.v);i++},p.t)
+  },
+  stopM(){if(this.mi){clearInterval(this.mi);this.mi=null;this.mt=""}}
+};
+AU.init();
+
+// ════════ UTILS ════════
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function cText(t,y,s=16,c="#fff"){cx.fillStyle=c;cx.font=s+"px monospace";cx.textAlign="center";cx.fillText(t,W/2,y);cx.textAlign="left"}
+function box(x,y,w,h,f="#000",s="#fff",lw=2){cx.fillStyle=f;cx.fillRect(x,y,w,h);cx.strokeStyle=s;cx.lineWidth=lw;cx.strokeRect(x,y,w,h)}
+function px(map,ox,oy,sc,pal,flip=false){
+  for(let r=0;r<map.length;r++)
+    for(let c=0;c<map[r].length;c++){
+      const ch=map[r][c];if(ch==="."||!pal[ch])continue;
+      cx.fillStyle=pal[ch];
+      const dx=flip?(map[r].length-1-c):c;
+      cx.fillRect(Math.round(ox+dx*sc),Math.round(oy+r*sc),sc,sc)
     }
 }
-
-function drawStory(ctx) {
-    if (!currentStory) return;
-
-    ctx.fillStyle = 'rgba(0,0,0,0.95)';
-    ctx.fillRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
-
-    // Title
-    ctx.fillStyle = currentStory.mercy ? '#44ff88' : '#ff4444';
-    ctx.font = 'bold 24px Courier New';
-    ctx.textAlign = 'center';
-    ctx.fillText(currentStory.title, GAME_CONFIG.width/2, 60);
-
-    // Boss drawing
-    currentStory.boss.draw(ctx);
-
-    // Story lines
-    ctx.fillStyle = '#fff';
-    ctx.font = '16px Courier New';
-    currentStory.displayedLines.forEach((line, i) => {
-        ctx.fillText(line, GAME_CONFIG.width/2, 300 + i * 30);
-    });
-
-    // Continue prompt
-    if (currentStory.complete) {
-        const blink = Math.sin(Date.now()/400) > 0;
-        if (blink) {
-            ctx.fillStyle = '#4af';
-            ctx.font = '14px Courier New';
-            ctx.fillText('Clique para continuar →',
-                GAME_CONFIG.width/2, GAME_CONFIG.height - 40);
-        }
-    }
+function wrapT(t,x,y,mw,lh){
+  const w=t.split(" ");let l="";
+  for(let i=0;i<w.length;i++){
+    const test=l+w[i]+" ";
+    if(cx.measureText(test).width>mw&&i>0){cx.fillText(l,x,y);l=w[i]+" ";y+=lh}
+    else l=test
+  }
+  cx.fillText(l,x,y)
 }
-
-function clickStory() {
-    if (currentStory && currentStory.complete) {
-        currentStory = null;
-        gameState = 'playing';
-
-        // Transition to next phase
-        const phase = SaveSystem.data.currentPhase;
-        if (phase >= 4) {
-            changeScene('credits');
-        } else {
-            showCutscene(phase);
-        }
-    }
+function fade(dir,speed=0.02){fadeDir=dir;if(dir>0)fadeAlpha=0;else fadeAlpha=1}
+function updateFade(){
+  if(fadeDir>0){fadeAlpha=Math.min(1,fadeAlpha+0.025)}
+  else if(fadeDir<0){fadeAlpha=Math.max(0,fadeAlpha-0.025)}
 }
+function drawFade(){if(fadeAlpha>0.01){cx.fillStyle=`rgba(0,0,0,${fadeAlpha})`;cx.fillRect(0,0,W,H)}}
 
-// ══════════════════════════════════════════════════════
-// SEÇÃO 12: CUTSCENES
-// ══════════════════════════════════════════════════════
-
-let cutsceneData = null;
-
-const CUTSCENES = {
-    intro: [
-        { speaker: 'Narrador', text: 'Em um mundo onde telas substituíram rostos...' },
-        { speaker: 'Narrador', text: '...onde likes valem mais que abraços...' },
-        { speaker: 'Narrador', text: 'Um estudante percebeu que algo estava errado.' },
-        { speaker: 'Você', text: 'Lucas era meu melhor amigo desde o primário.' },
-        { speaker: 'Você', text: 'A gente fazia tudo junto.' },
-        { speaker: 'Lucas', text: 'Ei! Olha esse app novo que eu achei!' },
-        { speaker: 'Você', text: 'No começo era divertido...' },
-        { speaker: 'Você', text: 'Mas aos poucos... Lucas foi mudando.' },
-        { speaker: 'Lucas', text: 'Não me incomoda. Estou ocupado.' },
-        { speaker: 'Você', text: 'Naquele dia, eu decidi trazê-lo de volta.' },
-        { speaker: '', text: 'CAPÍTULO 1: A Tela Que Consome' }
-    ],
-
-    phase1to2: [
-        { speaker: 'Você', text: 'O Vício Digital encontrou paz...' },
-        { speaker: 'Você', text: 'Mas há mais pela frente.' },
-        { speaker: 'Lucas', text: 'Você acha que resolveu alguma coisa?' },
-        { speaker: 'Lucas', text: 'O vício é apenas o começo. As mentiras vêm depois.' },
-        { speaker: 'Você', text: 'Lucas... por que você está fazendo isso?' },
-        { speaker: '', text: 'CAPÍTULO 2: A Máscara da Mentira' }
-    ],
-
-    phase2to3: [
-        { speaker: 'Você', text: 'A Desinformação entendeu o valor da verdade.' },
-        { speaker: 'Você', text: 'Esse lugar está ficando mais frio...' },
-        { speaker: 'Lucas', text: 'Sabe o que é pior que mentiras?' },
-        { speaker: 'Lucas', text: 'O silêncio. O vazio. A solidão.' },
-        { speaker: 'Você', text: 'Não é tarde. Nunca é.' },
-        { speaker: '', text: 'CAPÍTULO 3: As Paredes do Vazio' }
-    ],
-
-    phase3toFinal: [
-        { speaker: '', text: 'Três manifestações. Três lições.' },
-        { speaker: '', text: 'Vício. Desinformação. Isolamento.' },
-        { speaker: 'Você', text: 'Aqui é... o laboratório dele?' },
-        { speaker: 'Lucas', text: 'Você chegou até aqui.' },
-        { speaker: 'Você', text: 'Lucas... eu vi tudo.' },
-        { speaker: 'Lucas', text: 'Então me prove que humanidade ainda vale alguma coisa.' },
-        { speaker: '', text: 'CAPÍTULO FINAL: Lucas, Meu Melhor Amigo' }
-    ],
-
-    goodEnding: [
-        { speaker: 'Lucas', text: 'Você estava certo esse tempo todo.' },
-        { speaker: 'Lucas', text: 'Eu me perdi. Achei que tecnologia era tudo.' },
-        { speaker: 'Lucas', text: 'Sem as pessoas... sem você...' },
-        { speaker: 'Lucas', text: '...não tem sentido nenhum.' },
-        { speaker: 'Você', text: 'Eu nunca desisti de você, Lucas.' },
-        { speaker: 'Lucas', text: 'Obrigado... meu amigo.' },
-        { speaker: '', text: 'A tecnologia é uma ferramenta poderosa.' },
-        { speaker: '', text: 'A escolha... sempre foi sua.' }
-    ],
-
-    badEnding: [
-        { speaker: '', text: 'Você escolheu a força.' },
-        { speaker: '', text: 'Lucas caiu... mas a tecnologia continuou.' },
-        { speaker: '', text: 'Sem ele, sem conexão, sem amizade.' },
-        { speaker: '', text: 'O mundo digital avançou...' },
-        { speaker: '', text: '...mas a humanidade ficou para trás.' },
-        { speaker: '', text: 'Tente novamente?' }
-    ]
+// ════════ SPRITE DATA ════════
+// Player (estudante com mochila)
+const SP_IDLE=[
+"....hhhh....",
+"...hhhhhh...",
+"..hssssssh..",
+"..seweewes..",
+"..ssssssss..",
+"...smmmms...",
+"....ssss....",
+"..rbbbbbbr..",
+"..rbblbbr...",
+"..rbbbbbbr..",
+"...pppppp...",
+"...pp..pp...",
+"...pp..pp...",
+"...kk..kk..."
+];
+const SP_W1=[
+"....hhhh....",
+"...hhhhhh...",
+"..hssssssh..",
+"..seweewes..",
+"..ssssssss..",
+"...smmmms...",
+"....ssss....",
+"..rbbbbbbr..",
+"..rbblbbr...",
+"..rbbbbbbr..",
+"...pppppp...",
+"..pp....pp..",
+"...pp..pp...",
+"..kk....kk.."
+];
+const SP_W2=[
+"....hhhh....",
+"...hhhhhh...",
+"..hssssssh..",
+"..seweewes..",
+"..ssssssss..",
+"...smmmms...",
+"....ssss....",
+"..rbbbbbbr..",
+"..rbblbbr...",
+"..rbbbbbbr..",
+"...pppppp...",
+"...pp..pp...",
+"..pp....pp..",
+"...kk..kk..."
+];
+const SP_PAL={
+  h:P.hr2,s:P.sk,e:P.wh,w:P.bl,m:"#c66b6b",
+  b:P.sh,l:P.sh2,r:P.pn,p:P.pn,k:P.bk2
 };
 
-function showCutscene(phaseIndex) {
-    const keys = ['intro', 'phase1to2', 'phase2to3', 'phase3toFinal'];
-    const key = keys[phaseIndex] || 'intro';
-    cutsceneData = {
-        lines: CUTSCENES[key],
-        currentLine: 0,
-        phase: phaseIndex
-    };
-    gameState = 'cutscene';
-    DialogueSystem.startDialogue(
-        cutsceneData.lines[0].speaker,
-        cutsceneData.lines.map(l => (l.speaker ? l.speaker + ': ' : '') + l.text),
-        () => {
-            cutsceneData = null;
-            // Load next phase
-            const phaseScenes = ['phase1', 'phase2', 'phase3', 'phaseFinal'];
-            changeScene(phaseScenes[phaseIndex] || 'phase1');
-        }
-    );
-}
-
-// ══════════════════════════════════════════════════════
-// SEÇÃO 13: SCENES
-// ══════════════════════════════════════════════════════
-
-const scenes = {};
-
-// --- MENU ---
-scenes.menu = {
-    buttons: [
-        { x: 380, y: 250, w: 200, h: 45, text: 'NOVO JOGO', action: 'new' },
-        { x: 380, y: 310, w: 200, h: 45, text: 'CONTINUAR', action: 'continue' },
-        { x: 380, y: 370, w: 200, h: 45, text: 'CONQUISTAS', action: 'achievements' }
-    ],
-    starTimer: 0,
-    stars: [],
-
-    init() {
-        AudioSystem.playMusic('menu');
-        this.stars = [];
-        for (let i = 0; i < 50; i++) {
-            this.stars.push({
-                x: Math.random() * GAME_CONFIG.width,
-                y: Math.random() * GAME_CONFIG.height,
-                size: Math.random() * 2 + 0.5,
-                speed: Math.random() * 0.3 + 0.1
-            });
-        }
-    },
-
-    update() {
-        for (const s of this.stars) {
-            s.y += s.speed;
-            if (s.y > GAME_CONFIG.height) {
-                s.y = 0;
-                s.x = Math.random() * GAME_CONFIG.width;
-            }
-        }
-    },
-
-    draw(ctx) {
-        // Background
-        ctx.fillStyle = '#0a0a2e';
-        ctx.fillRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
-
-        // Stars
-        for (const s of this.stars) {
-            ctx.fillStyle = `rgba(200,220,255,${0.3 + Math.sin(Date.now()/500 + s.x)*0.3})`;
-            ctx.fillRect(s.x, s.y, s.size, s.size);
-        }
-
-        // Title
-        ctx.fillStyle = '#4af';
-        ctx.font = 'bold 36px Courier New';
-        ctx.textAlign = 'center';
-        ctx.fillText('ENTRE LINHAS', GAME_CONFIG.width/2, 120);
-        ctx.fillText('E TELAS', GAME_CONFIG.width/2, 165);
-
-        // Subtitle
-        ctx.fillStyle = '#888';
-        ctx.font = '14px Courier New';
-        ctx.fillText('Uma história sobre conexões perdidas',
-            GAME_CONFIG.width/2, 200);
-
-        // Buttons
-        for (const btn of this.buttons) {
-            const hover = mouseX >= btn.x && mouseX <= btn.x + btn.w &&
-                          mouseY >= btn.y && mouseY <= btn.y + btn.h;
-
-            if (btn.action === 'continue' && !SaveSystem.hasSave()) {
-                ctx.fillStyle = 'rgba(50,50,50,0.5)';
-                ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
-                ctx.fillStyle = '#555';
-                ctx.font = '16px Courier New';
-                ctx.fillText(btn.text, btn.x + btn.w/2, btn.y + btn.h/2 + 6);
-                continue;
-            }
-
-            ctx.fillStyle = hover ? '#4af' : 'rgba(0,0,0,0.7)';
-            ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
-            ctx.strokeStyle = '#4af';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
-            ctx.fillStyle = hover ? '#000' : '#4af';
-            ctx.font = 'bold 16px Courier New';
-            ctx.fillText(btn.text, btn.x + btn.w/2, btn.y + btn.h/2 + 6);
-        }
-
-        // Version
-        ctx.fillStyle = '#444';
-        ctx.font = '11px Courier New';
-        ctx.fillText('v' + GAME_CONFIG.version, GAME_CONFIG.width/2, 520);
-    },
-
-    click(mx, my) {
-        for (const btn of this.buttons) {
-            if (mx >= btn.x && mx <= btn.x + btn.w &&
-                my >= btn.y && my <= btn.y + btn.h) {
-                AudioSystem.playSelect();
-                switch(btn.action) {
-                    case 'new':
-                        SaveSystem.newGame();
-                        showCutscene(0);
-                        break;
-                    case 'continue':
-                        if (SaveSystem.hasSave()) {
-                            SaveSystem.load();
-                            const p = SaveSystem.data.currentPhase;
-                            const phaseScenes = ['phase1','phase2','phase3','phaseFinal'];
-                            changeScene(phaseScenes[Math.min(p, 3)] || 'phase1');
-                        }
-                        break;
-                    case 'achievements':
-                        changeScene('achievementsScreen');
-                        break;
-                }
-            }
-        }
-    }
+// Lucas NPC (normal)
+const LUCAS_NPC=[
+"....hhhh....",
+"...hhhhhh...",
+"..hssssssh..",
+"..sseesses..",
+"..ssggggss..",
+"...smmmms...",
+"....ssss....",
+"...jjjjjj...",
+"..jjtttjj...",
+"...jjjjjj...",
+"...pppppp...",
+"...pp..pp...",
+"...kk..kk..."
+];
+const LUCAS_NPC_PAL={
+  h:"#1a1a1a",s:P.sk,e:P.wh,g:P.tc,m:"#8a5050",
+  j:P.ct,t:"#0a3a1e",p:"#1a1a40",k:P.bk2
 };
 
-// --- ACHIEVEMENTS SCREEN ---
-scenes.achievementsScreen = {
-    scrollY: 0,
+// Boss 1 - Vício Digital (tela viva com cabos)
+const B1=[
+".....nnnnnn.....",
+"...nnccccccnn...",
+"..nccccccccccn..",
+"..nccrr.yy.ccn..",
+"..nccccccccccn..",
+"..nccbbbbbbccn..",
+"..nccccccccccn..",
+"...nnccccccnn...",
+"......tttt......",
+"....tttttttt....",
+"...ttttttttttt..",
+"...tt......tt...",
+"...ll......ll...",
+"...ll......ll..."
+];
+const B1P={n:"#0b1d2e",c:"#20c8f0",r:"#ff3333",y:"#ffe040",b:"#0d2840",t:"#162334",l:"#20c8f0"};
 
-    init() { this.scrollY = 0; },
+// Boss 2 - Desinformação (múltiplas faces)
+const B2=[
+"......aaa.......",
+"...aafffffaa....",
+"..affffffffffa..",
+"..affe..ff..ffa.",
+"..afffffffmffa..",
+"..afffmmmmmffa..",
+"...affmddmmfa...",
+"....xxmddmxx....",
+"...xxxddddxxx...",
+"....xxddddxx....",
+"....qq....qq....",
+"...qq......qq...",
+"...qq......qq..."
+];
+const B2P={a:"#7f2828",f:"#ffb040",e:"#111",m:"#2e0e0e",d:"#cc3030",x:"#5b1818",q:"#7f2828"};
 
-    update() {},
+// Boss 3 forma A - Isolamento (na bolha)
+const B3A=[
+"....oooooooo....",
+"..ooppppppppoo..",
+".ooppppppppppo.",
+".oppp..hh..pppo.",
+".oppp..ss..pppo.",
+".oppp..ss..pppo.",
+".oppp.t..t.pppo.",
+".oppp..tt..pppo.",
+".ooppppppppppo.",
+"..ooppppppppoo..",
+"....oooooooo...."
+];
+const B3AP={o:"rgba(140,100,255,.45)",p:"rgba(100,60,200,.2)",h:"#8aa0c8",s:"#505878",t:"#2c3050"};
 
-    draw(ctx) {
-        ctx.fillStyle = '#0a0a2e';
-        ctx.fillRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
+// Boss 3 forma B - Transformado
+const B3B=[
+"....mmmmmmmm....",
+"..mmvvvvvvvvmm..",
+".mvvvvvvvvvvvm.",
+".mvv..hh..vvvm.",
+".mvvvvvvvvvvvm.",
+".mvv.XXXX.vvvm.",
+".mvvvvvvvvvvvm.",
+".mvvvtttttvvvm.",
+".mvvvvvvvvvvvm.",
+"..mmvvvvvvvvmm..",
+"....mmmmmmmm...."
+];
+const B3BP={m:"rgba(255,60,170,.6)",v:"#6e1650",h:P.wh,X:"#ff1188",t:"#2a0620"};
 
-        ctx.fillStyle = '#ffcc33';
-        ctx.font = 'bold 24px Courier New';
-        ctx.textAlign = 'center';
-        ctx.fillText('🏆 CONQUISTAS', GAME_CONFIG.width/2, 40);
+// Boss Final - Lucas (tech coat, visor)
+const BF=[
+"....hhhhhh......",
+"...hhhhhhhhh....",
+"..hssssssssh....",
+"..ssvvvvvvss....",
+"..sseeggees....",
+"...ssmmmms.....",
+"....ssss.......",
+"..jjjjjjjjjj...",
+"..jjttggttjj...",
+"..jjttggttjj...",
+"..jjjjjjjjjj...",
+"..jjj....jjj...",
+"..ppp....ppp...",
+"..kk......kk..."
+];
+const BFP={h:"#0a0a0a",s:P.sk,v:"rgba(0,255,100,.5)",e:P.wh,g:P.tc,m:"#704040",j:"#111",t:"#0a3020",p:"#181840",k:P.bk2};
 
-        const unlocked = AchievementSystem.getUnlockedCount();
-        const total = AchievementSystem.list.length;
-        ctx.fillStyle = '#888';
-        ctx.font = '14px Courier New';
-        ctx.fillText(`${unlocked}/${total} desbloqueadas`, GAME_CONFIG.width/2, 65);
+// Soul / Heart
+function drawSoul(x,y,r){
+  const p=1+Math.sin(frame/7)*.12;
+  cx.fillStyle="rgba(255,20,80,.18)";
+  cx.beginPath();cx.arc(x,y,r*1.8*p,0,Math.PI*2);cx.fill();
+  cx.fillStyle=P.hr;
+  cx.save();cx.translate(x,y);cx.rotate(Math.PI/4);
+  cx.fillRect(-r/2,-r/2,r,r);cx.restore();
+  cx.fillStyle="rgba(255,255,255,.25)";
+  cx.fillRect(x-r/3,y-r/2.5,r/3,r/3)
+}
 
-        let y = 90 - this.scrollY;
-        for (const a of AchievementSystem.list) {
-            if (y > 50 && y < GAME_CONFIG.height - 30) {
-                const isUnlocked = AchievementSystem.isUnlocked(a.id);
-
-                ctx.fillStyle = isUnlocked
-                    ? (a.secret ? 'rgba(255,200,0,0.3)' : 'rgba(50,200,50,0.3)')
-                    : 'rgba(50,50,50,0.5)';
-                ctx.fillRect(100, y, GAME_CONFIG.width - 200, 40);
-                ctx.strokeStyle = isUnlocked ? (a.secret ? '#ffcc33' : '#44ff88') : '#333';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(100, y, GAME_CONFIG.width - 200, 40);
-
-                ctx.textAlign = 'left';
-                ctx.fillStyle = isUnlocked ? '#fff' : '#666';
-                ctx.font = 'bold 13px Courier New';
-                ctx.fillText(
-                    isUnlocked ? a.title : (a.secret ? '???' : a.title),
-                    120, y + 17);
-
-                ctx.font = '11px Courier New';
-                ctx.fillStyle = isUnlocked ? '#aaa' : '#555';
-                ctx.fillText(
-                    isUnlocked ? a.desc : (a.secret ? (a.hint || '???') : a.desc),
-                    120, y + 33);
-
-                if (isUnlocked) {
-                    ctx.textAlign = 'right';
-                    ctx.fillStyle = '#ffcc33';
-                    ctx.font = 'bold 12px Courier New';
-                    ctx.fillText('+' + a.xp + 'XP',
-                        GAME_CONFIG.width - 120, y + 25);
-                }
-            }
-            y += 48;
-        }
-
-        // Back button
-        ctx.fillStyle = '#4af';
-        ctx.font = '14px Courier New';
-        ctx.textAlign = 'center';
-        ctx.fillText('← Clique para voltar', GAME_CONFIG.width/2, GAME_CONFIG.height - 15);
-    },
-
-    click() {
-        changeScene('menu');
+// ════════ DIALOGUE ════════
+const DL={
+  on:false,sp:"",ls:[],i:0,shown:"",ci:0,
+  qm:"",qt:0,cb:null,
+  start(sp,ls,cb=null){this.on=true;this.sp=sp;this.ls=ls;this.i=0;this.shown="";this.ci=0;this.cb=cb;state="dialogue"},
+  quick(m){this.qm=m;this.qt=180},
+  next(){
+    if(!this.on)return;
+    if(this.ci<this.ls[this.i].length){this.shown=this.ls[this.i];this.ci=this.ls[this.i].length;return}
+    this.i++;
+    if(this.i>=this.ls.length){this.on=false;state=prevState||"world";if(this.cb)this.cb();return}
+    this.shown="";this.ci=0
+  },
+  update(){
+    if(this.qt>0)this.qt--;
+    if(!this.on)return;
+    const c=this.ls[this.i]||"";
+    if(this.ci<c.length&&frame%2===0){this.shown+=c[this.ci];if(c[this.ci]!==" ")AU.txt();this.ci++}
+  },
+  draw(){
+    if(this.qt>0){
+      const a=Math.min(1,this.qt/20);
+      cx.save();cx.globalAlpha=a;
+      box(140,14,680,40,"rgba(0,0,0,.85)",P.cy);
+      cx.fillStyle=P.wh;cx.font="15px monospace";cx.textAlign="center";
+      cx.fillText(this.qm,W/2,40);cx.restore();cx.textAlign="left"
     }
+    if(!this.on)return;
+    box(30,H-150,W-60,130,"#000",P.wh,3);
+    if(this.sp){cx.fillStyle=P.yl;cx.font="bold 16px monospace";cx.fillText(this.sp,50,H-125)}
+    cx.fillStyle=P.wh;cx.font="16px monospace";
+    wrapT(this.shown,50,H-100,W-120,22);
+    if(this.ci>=(this.ls[this.i]||"").length&&Math.floor(frame/25)%2===0){
+      cx.fillStyle=P.yl;cx.font="14px monospace";cx.textAlign="right";
+      cx.fillText("▼",W-50,H-30);cx.textAlign="left"
+    }
+  }
 };
 
-// --- PHASE TEMPLATE ---
-function createPhaseScene(phaseIndex, bgColor, platformColor, bossCreator, musicTrack) {
-    return {
-        platforms: [],
-        checkpoints: [],
-        preBossSave: null,
-        lucasNPC: null,
-        bossTrigger: null,
-        phaseIndex,
+// ════════ ENDINGS TRACKER ════════
+function getEnding(){
+  const d=SV.d;
+  const allMercy=d.mercies>=4&&d.kills===0;
+  const allKill=d.kills>=4&&d.mercies===0;
+  const mixed=!allMercy&&!allKill;
+  const noAttackFinal=!d.attackedFinal;
+  const talkedAll=d.talks>=15;
 
-        init() {
-            player.reset();
-            player.x = 50;
-            player.y = 300;
-            player.health = SaveSystem.data.playerHealth || player.maxHealth;
-
-            AudioSystem.playMusic(musicTrack);
-
-            this.platforms = [
-                // Ground
-                { x: 0, y: 430, width: GAME_CONFIG.width, height: 110, color: platformColor },
-                // Platforms
-                { x: 100, y: 350, width: 120, height: 15, color: platformColor },
-                { x: 300, y: 310, width: 100, height: 15, color: platformColor },
-                { x: 500, y: 280, width: 130, height: 15, color: platformColor },
-                { x: 700, y: 330, width: 110, height: 15, color: platformColor },
-            ];
-
-            // Normal checkpoint
-            this.checkpoints = [
-                { x: 200, y: 400, active: false, id: phaseIndex * 3 },
-                { x: 500, y: 400, active: false, id: phaseIndex * 3 + 1 }
-            ];
-
-            // Pre-boss save point
-            this.preBossSave = {
-                x: 750, y: 400, active: false, id: phaseIndex
-            };
-
-            // Lucas NPC
-            this.lucasNPC = {
-                x: 650, y: 388, talked: false
-            };
-
-            // Boss trigger
-            this.bossTrigger = {
-                x: 880, y: 380, triggered: false
-            };
-        },
-
-        update() {
-            if (gameState !== 'playing') return;
-
-            player.update(this.platforms);
-
-            // Checkpoints
-            for (const cp of this.checkpoints) {
-                if (!cp.active &&
-                    Math.abs(player.x - cp.x) < 30 &&
-                    Math.abs(player.y - cp.y) < 50) {
-                    cp.active = true;
-                    if (!SaveSystem.saveBlocked) {
-                        SaveSystem.data.playerHealth = player.health;
-                        SaveSystem.save();
-                        DialogueSystem.showQuick('💾 Checkpoint ativado!');
-                        AudioSystem.playSave();
-                        EffectsSystem.spawnSaveEffect(cp.x, cp.y);
-                        SaveSystem.ActivateCheckpoint?.(cp.id);
-                    }
-                }
-            }
-
-            // Pre-boss save
-            if (this.preBossSave && !this.preBossSave.active &&
-                Math.abs(player.x - this.preBossSave.x) < 30 &&
-                Math.abs(player.y - this.preBossSave.y) < 50) {
-                this.preBossSave.active = true;
-                SaveSystem.saveBeforeBoss(phaseIndex);
-                player.heal(player.maxHealth);
-                DialogueSystem.showQuick('❤️ Vida restaurada! Prepare-se!');
-            }
-
-            // Lucas NPC
-            if (this.lucasNPC && !this.lucasNPC.talked &&
-                Math.abs(player.x - this.lucasNPC.x) < 40 &&
-                Math.abs(player.y - this.lucasNPC.y) < 50 &&
-                KEYS.action) {
-                this.lucasNPC.talked = true;
-                showLucasDialogue(phaseIndex);
-            }
-
-            // Boss trigger
-            if (this.bossTrigger && !this.bossTrigger.triggered &&
-                player.x > this.bossTrigger.x) {
-                this.bossTrigger.triggered = true;
-                const boss = bossCreator();
-                BattleSystem.startBattle(boss);
-            }
-        },
-
-        draw(ctx) {
-            // Background
-            ctx.fillStyle = bgColor;
-            ctx.fillRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
-
-            // Background details based on phase
-            drawPhaseBackground(ctx, phaseIndex);
-
-            // Platforms
-            for (const p of this.platforms) {
-                ctx.fillStyle = p.color;
-                ctx.fillRect(p.x, p.y, p.width, p.height);
-                ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-                ctx.strokeRect(p.x, p.y, p.width, p.height);
-            }
-
-            // Checkpoints
-            for (const cp of this.checkpoints) {
-                const glow = Math.sin(Date.now()/400) * 0.3;
-                ctx.fillStyle = cp.active
-                    ? 'rgba(100,100,100,0.5)'
-                    : `rgba(255,200,50,${0.7+glow})`;
-                ctx.fillRect(cp.x - 8, cp.y - 25, 16, 25);
-                ctx.fillStyle = '#fff';
-                ctx.font = '10px Courier New';
-                ctx.textAlign = 'center';
-                ctx.fillText(cp.active ? '✓' : '★', cp.x, cp.y - 30);
-            }
-
-            // Pre-boss save
-            if (this.preBossSave) {
-                const glow = Math.sin(Date.now()/300) * 0.3;
-                ctx.fillStyle = this.preBossSave.active
-                    ? 'rgba(100,100,100,0.5)'
-                    : `rgba(255,100,50,${0.8+glow})`;
-                ctx.fillRect(this.preBossSave.x - 10, this.preBossSave.y - 30, 20, 30);
-                ctx.fillStyle = '#fff';
-                ctx.font = '11px Courier New';
-                ctx.textAlign = 'center';
-                ctx.fillText(
-                    this.preBossSave.active ? '✓ SALVO' : '★ BOSS SAVE',
-                    this.preBossSave.x, this.preBossSave.y - 35);
-            }
-
-            // Lucas NPC
-            if (this.lucasNPC) {
-                drawLucasNPC(ctx, this.lucasNPC.x, this.lucasNPC.y);
-                if (!this.lucasNPC.talked &&
-                    Math.abs(player.x - this.lucasNPC.x) < 60) {
-                    ctx.fillStyle = '#4af';
-                    ctx.font = '12px Courier New';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('[E] Falar com Lucas',
-                        this.lucasNPC.x, this.lucasNPC.y - 50);
-                }
-            }
-
-            // Boss trigger indicator
-            if (this.bossTrigger && !this.bossTrigger.triggered) {
-                const pulse = Math.sin(Date.now()/300) > 0;
-                if (pulse) {
-                    ctx.fillStyle = '#ff4444';
-                    ctx.font = '12px Courier New';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('⚠️ BOSS →', this.bossTrigger.x - 30,
-                        this.bossTrigger.y - 20);
-                }
-            }
-
-            // Player
-            player.draw(ctx);
-
-            // HUD
-            drawHUD(ctx, phaseIndex);
-        },
-
-        click(mx, my) {
-            if (gameState === 'battle') {
-                BattleSystem.handleClick(mx, my);
-            }
-        }
-    };
+  if(allMercy&&noAttackFinal&&talkedAll) return "true_pacifist";
+  if(allMercy&&noAttackFinal) return "pacifist";
+  if(allMercy) return "good";
+  if(allKill) return "genocide";
+  if(d.kills>=3) return "bad";
+  if(mixed&&d.mercies>d.kills) return "neutral_good";
+  return "neutral";
 }
 
-// Create phase scenes
-scenes.phase1 = createPhaseScene(0, '#0a0a2e', '#1a1a4e', createBoss1, 'phase1');
-scenes.phase2 = createPhaseScene(1, '#1a0505', '#3a1515', createBoss2, 'phase2');
-scenes.phase3 = createPhaseScene(2, '#05051a', '#151530', createBoss3, 'phase3');
-scenes.phaseFinal = createPhaseScene(3, '#021002', '#0a2a0a', createFinalBoss, 'phaseFinal');
+// ════════ MAP SYSTEM ════════
+// Rooms no estilo grid/tile
+const TILE=32;
+const ROOM_W=30; // tiles
+const ROOM_H=17; // tiles
 
-// --- DEATH SCREEN ---
-scenes.death = {
-    timer: 0,
-    buttons: [
-        { x: 280, y: 320, w: 180, h: 40, text: 'Tentar Novamente' },
-        { x: 500, y: 320, w: 180, h: 40, text: 'Menu Principal' }
-    ],
-
-    init() {
-        this.timer = 0;
-        AudioSystem.playMusic('gameover');
-    },
-
-    update() { this.timer++; },
-
-    draw(ctx) {
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
-
-        if (this.timer > 30) {
-            ctx.fillStyle = '#ff4444';
-            ctx.font = 'bold 36px Courier New';
-            ctx.textAlign = 'center';
-            ctx.fillText('GAME OVER', GAME_CONFIG.width/2, 150);
-        }
-
-        if (this.timer > 90) {
-            const messages = [
-                "Você caiu...",
-                "Mas a determinação te mantém vivo.",
-                "Alguém ainda precisa de você."
-            ];
-            ctx.fillStyle = '#888';
-            ctx.font = '16px Courier New';
-            messages.forEach((m, i) => {
-                ctx.fillText(m, GAME_CONFIG.width/2, 220 + i * 30);
-            });
-        }
-
-        if (this.timer > 150) {
-            for (const btn of this.buttons) {
-                const hover = mouseX >= btn.x && mouseX <= btn.x + btn.w &&
-                              mouseY >= btn.y && mouseY <= btn.y + btn.h;
-                ctx.fillStyle = hover ? '#4af' : 'rgba(0,0,0,0.7)';
-                ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
-                ctx.strokeStyle = '#4af';
-                ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
-                ctx.fillStyle = hover ? '#000' : '#fff';
-                ctx.font = '14px Courier New';
-                ctx.fillText(btn.text, btn.x + btn.w/2, btn.y + btn.h/2 + 5);
-            }
-        }
-    },
-
-    click(mx, my) {
-        if (this.timer < 150) return;
-        if (mx >= 280 && mx <= 460 && my >= 320 && my <= 360) {
-            const phase = SaveSystem.data.currentPhase;
-            const scenes = ['phase1','phase2','phase3','phaseFinal'];
-            player.reset();
-            player.health = player.maxHealth;
-            changeScene(scenes[Math.min(phase, 3)]);
-        }
-        if (mx >= 500 && mx <= 680 && my >= 320 && my <= 360) {
-            changeScene('menu');
-        }
+function createRoom(phase){
+  const room={tiles:[],npcs:[],saves:[],door:null,items:[],triggers:[]};
+  
+  // Base: bordas são parede, interior é chão
+  for(let y=0;y<ROOM_H;y++){
+    room.tiles[y]=[];
+    for(let x=0;x<ROOM_W;x++){
+      if(y===0||y===ROOM_H-1||x===0||x===ROOM_W-1)
+        room.tiles[y][x]=1; // parede
+      else
+        room.tiles[y][x]=0; // chão
     }
-};
+  }
 
-// --- CREDITS ---
-scenes.credits = {
-    scrollY: 0,
-    timer: 0,
+  // Detalhes por fase
+  if(phase===0){
+    // Sala digital - pilares de tela
+    for(let y=3;y<7;y++){room.tiles[y][5]=1;room.tiles[y][10]=1;room.tiles[y][15]=1;room.tiles[y][20]=1;room.tiles[y][25]=1}
+    // Mesa
+    for(let x=12;x<18;x++)room.tiles[10][x]=2;
+    room.npcs.push({type:"lucas",x:8,y:8,talked:false});
+    room.saves.push({x:4,y:12,preBoss:false,used:false});
+    room.saves.push({x:22,y:8,preBoss:true,used:false});
+    room.door={x:28,y:8};
+    room.items.push({x:14,y:5,type:"heal",taken:false});
+    room.triggers.push({x:2,y:8,id:"intro_"+phase,done:false});
+  }
+  else if(phase===1){
+    // Sala caótica - blocos aleatórios
+    [[4,3],[7,5],[12,4],[18,6],[23,3],[8,10],[16,11],[24,10]].forEach(([x,y])=>{room.tiles[y][x]=1});
+    room.npcs.push({type:"lucas",x:13,y:7,talked:false});
+    room.saves.push({x:3,y:14,preBoss:false,used:false});
+    room.saves.push({x:24,y:6,preBoss:true,used:false});
+    room.door={x:28,y:8};
+    room.items.push({x:20,y:12,type:"heal",taken:false});
+  }
+  else if(phase===2){
+    // Sala vazia - poucos obstáculos, muito espaço
+    for(let x=8;x<22;x++){room.tiles[5][x]=1;room.tiles[11][x]=1}
+    room.tiles[5][14]=0;room.tiles[5][15]=0; // passagem
+    room.tiles[11][14]=0;room.tiles[11][15]=0;
+    room.npcs.push({type:"lucas",x:14,y:8,talked:false});
+    room.saves.push({x:3,y:8,preBoss:false,used:false});
+    room.saves.push({x:25,y:8,preBoss:true,used:false});
+    room.door={x:28,y:8};
+  }
+  else{
+    // Lab final - grid tech
+    for(let y=3;y<6;y++)for(let x=3;x<8;x++)room.tiles[y][x]=2;
+    for(let y=3;y<6;y++)for(let x=22;x<27;x++)room.tiles[y][x]=2;
+    for(let y=10;y<14;y++){room.tiles[y][10]=1;room.tiles[y][19]=1}
+    room.npcs.push({type:"lucas",x:14,y:4,talked:false});
+    room.saves.push({x:3,y:14,preBoss:false,used:false});
+    room.saves.push({x:14,y:12,preBoss:true,used:false});
+    room.door={x:14,y:2};
+  }
 
-    init() {
-        this.scrollY = 0;
-        this.timer = 0;
-        const mercy = SaveSystem.data.finalBossMercy;
-        AudioSystem.playMusic(mercy ? 'victory' : 'gameover');
-    },
+  return room;
+}
 
-    update() {
-        this.timer++;
-        this.scrollY += 0.5;
-    },
+// ════════ WORLD ════════
+let prevState="world";
+const WR={
+  phase:0,room:null,
+  camX:0,camY:0,
 
-    draw(ctx) {
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
+  init(phase){
+    this.phase=phase;
+    this.room=createRoom(phase);
+    state="world";prevState="world";
+    PL.x=3*TILE;PL.y=8*TILE;PL.dir=1;
+    PL.hp=SV.d.hp||PL.maxHp;
+    const musics=["world1","world2","world3","worldF"];
+    AU.playM(musics[Math.min(phase,3)]);
+    DL.quick(["Fase 1: Vício Digital","Fase 2: Desinformação","Fase 3: Isolamento Social","Fase Final: Lucas"][phase]);
+  },
 
-        const credits = [
-            '',
-            '════════════════════════',
-            'ENTRE LINHAS E TELAS',
-            '════════════════════════',
-            '',
-            '── DESENVOLVIMENTO ──',
-            'Game Design: Você',
-            'Programação: Você',
-            'Arte: Gerada por código',
-            '',
-            '── HISTÓRIA ──',
-            'Roteiro: Você',
-            '',
-            '── ÁUDIO ──',
-            'Música: Procedural',
-            'SFX: Web Audio API',
-            '',
-            '── INSPIRAÇÃO ──',
-            'Toby Fox - Undertale',
-            '',
-            '── MENSAGEM ──',
-            '',
-            'Este jogo foi criado com a crença',
-            'de que tecnologia e humanidade',
-            'não precisam ser opostos.',
-            '',
-            'Use a tecnologia para conectar.',
-            'Para criar. Para ajudar.',
-            '',
-            '── OBRIGADO ──',
-            '',
-            'Obrigado por jogar.',
-            'Obrigado por não desistir.',
-            '',
-            '',
-            SaveSystem.data.finalBossMercy
-                ? '"Obrigado por não desistir de mim." — Lucas'
-                : '"Tente novamente?" — ???',
-            '',
-            '',
-            'FIM',
-            '',
-            '',
-            'Clique para voltar ao menu'
-        ];
+  getTile(tx,ty){
+    if(tx<0||tx>=ROOM_W||ty<0||ty>=ROOM_H)return 1;
+    return this.room.tiles[ty][tx];
+  },
 
-        ctx.fillStyle = '#fff';
-        ctx.font = '16px Courier New';
-        ctx.textAlign = 'center';
+  update(){
+    if(state!=="world")return;
+    PL.update();
 
-        credits.forEach((line, i) => {
-            const y = GAME_CONFIG.height - this.scrollY + i * 30;
-            if (y > -20 && y < GAME_CONFIG.height + 20) {
-                if (line.includes('═')) ctx.fillStyle = '#4af';
-                else if (line.includes('──')) ctx.fillStyle = '#ffcc33';
-                else if (line.includes('"')) ctx.fillStyle = '#44ff88';
-                else ctx.fillStyle = '#fff';
-                ctx.fillText(line, GAME_CONFIG.width/2, y);
-            }
-        });
-    },
+    const ptx=Math.floor((PL.x+12)/TILE);
+    const pty=Math.floor((PL.y+12)/TILE);
 
-    click() {
-        changeScene('menu');
+    // NPC interaction
+    for(const n of this.room.npcs){
+      if(!n.talked&&Math.abs(ptx-n.x)<=1&&Math.abs(pty-n.y)<=1&&K.a){
+        K.a=0;n.talked=true;
+        prevState="world";
+        this.talkLucas();
+      }
     }
-};
 
-// ══════════════════════════════════════════════════════
-// SEÇÃO 14: HELPERS DE DESENHO
-// ══════════════════════════════════════════════════════
-
-function drawPhaseBackground(ctx, phase) {
-    switch(phase) {
-        case 0: // City neon
-            for (let i = 0; i < 8; i++) {
-                const h = 80 + Math.sin(i*2.5)*40;
-                ctx.fillStyle = '#0f0f33';
-                ctx.fillRect(i*120+10, 430-h, 100, h);
-                // Windows
-                for (let j = 0; j < 5; j++) {
-                    ctx.fillStyle = Math.random() > 0.5 ? '#00ccff44' : '#ffcc0044';
-                    ctx.fillRect(i*120+20+j*15, 440-h+10+Math.floor(Math.random()*h*0.7), 6, 6);
-                }
-            }
-            break;
-        case 1: // Chaotic red
-            for (let i = 0; i < 6; i++) {
-                ctx.fillStyle = `rgba(200,30,30,${0.1+Math.random()*0.1})`;
-                ctx.fillRect(Math.random()*GAME_CONFIG.width-50, Math.random()*300, 200, 20);
-            }
-            break;
-        case 2: // Empty cold
-            ctx.fillStyle = 'rgba(100,120,180,0.3)';
-            ctx.fillRect(200, 150, 100, 130);
-            ctx.fillStyle = 'rgba(100,120,180,0.1)';
-            ctx.fillRect(230, 280, 40, 150);
-            break;
-        case 3: // Tech lab
-            ctx.strokeStyle = 'rgba(0,255,100,0.15)';
-            ctx.lineWidth = 1;
-            for (let x = 0; x < GAME_CONFIG.width; x += 60) {
-                ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,GAME_CONFIG.height); ctx.stroke();
-            }
-            for (let y = 0; y < GAME_CONFIG.height; y += 60) {
-                ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(GAME_CONFIG.width,y); ctx.stroke();
-            }
-            break;
+    // Save
+    for(const s of this.room.saves){
+      if(!s.used&&ptx===s.x&&pty===s.y){
+        s.used=true;
+        if(s.preBoss){
+          SV.d.hp=PL.maxHp;PL.hp=PL.maxHp;
+          SV.d.preBoss=true;SV.save();
+          AU.sv();DL.quick("💾 Save pré-boss! Vida restaurada!")
+        }else{
+          SV.d.hp=PL.hp;SV.save();AU.sv();DL.quick("💾 Progresso salvo.")
+        }
+      }
     }
-}
 
-function drawLucasNPC(ctx, x, y) {
-    // Simple Lucas character
-    ctx.fillStyle = '#ffcc99';
-    ctx.fillRect(x-8, y-25, 16, 16); // head
-    ctx.fillStyle = '#000';
-    ctx.fillRect(x-9, y-28, 18, 5); // hair
-    ctx.fillStyle = '#111';
-    ctx.fillRect(x-9, y-9, 18, 22); // body
-    ctx.fillStyle = '#00ff66';
-    ctx.fillRect(x-5, y-3, 10, 2); // tech line
-    ctx.fillStyle = '#0a0a22';
-    ctx.fillRect(x-6, y+13, 6, 12); // legs
-    ctx.fillRect(x, y+13, 6, 12); // legs
+    // Items
+    for(const it of this.room.items||[]){
+      if(!it.taken&&ptx===it.x&&pty===it.y){
+        it.taken=true;
+        if(it.type==="heal"){PL.hp=Math.min(PL.hp+5,PL.maxHp);DL.quick("❤️ +5 HP!")}
+      }
+    }
 
-    // Name label
-    ctx.fillStyle = '#00ff66';
-    ctx.font = '10px Courier New';
-    ctx.textAlign = 'center';
-    ctx.fillText('Lucas', x, y - 35);
-}
+    // Door
+    if(this.room.door&&ptx===this.room.door.x&&pty===this.room.door.y){
+      BT.start(this.phase);
+    }
+  },
 
-function drawHUD(ctx, phase) {
-    // HP Bar
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillRect(10, 10, 200, 25);
-    ctx.fillStyle = '#ff4444';
-    ctx.fillRect(12, 12, 196 * (player.health / player.maxHealth), 21);
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(10, 10, 200, 25);
-    ctx.fillStyle = '#fff';
-    ctx.font = '12px Courier New';
-    ctx.textAlign = 'left';
-    ctx.fillText(`❤️ ${Math.ceil(player.health)}/${player.maxHealth}`, 15, 27);
-
-    // Phase indicator
-    ctx.fillStyle = '#888';
-    ctx.font = '11px Courier New';
-    ctx.textAlign = 'right';
-    const phaseNames = ['Fase 1: Vício Digital', 'Fase 2: Desinformação',
-                        'Fase 3: Isolamento Social', 'Fase Final: Lucas'];
-    ctx.fillText(phaseNames[phase] || '', GAME_CONFIG.width - 10, 25);
-
-    // Controls hint
-    if (isMobile) return;
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.font = '10px Courier New';
-    ctx.textAlign = 'left';
-    ctx.fillText('← → Mover  |  ESPAÇO Pular  |  E Interagir  |  ESC Menu', 10, GAME_CONFIG.height - 10);
-}
-
-function showLucasDialogue(phase) {
-    const dialogues = [
-        ['Esse cara que você vai enfrentar... era eu meses atrás.',
-         'Preso na tela, sem dormir, sem comer direito.',
-         'Tente conversar com ele. Por favor.'],
-        ['Esse próximo inimigo é traiçoeiro.',
-         'Ele acredita em tudo que vê na internet.',
-         'Mostre pra ele que a verdade importa.'],
-        ['Esse é o que mais me dói.',
-         'Ele construiu muros digitais ao redor de si.',
-         'Não ataque. Fala com ele. Quantas vezes precisar.'],
-        ['Eu vi tudo que você fez.',
-         'Você ajudou cada um deles.',
-         'Agora sou eu. Me convença.',
-         'Me mostre que as conexões humanas ainda valem mais.']
+  talkLucas(){
+    SV.d.lucas[this.phase]=true;
+    SV.d.talks++;
+    const d=[
+      [
+        "Você veio...",
+        "Esse primeiro guardião era como eu há meses.",
+        "Preso. Perdido. Engolido pela tela.",
+        "Ele não é mau. Só está viciado.",
+        "Se puder... tenta conversar antes de atacar.",
+        "Às vezes uma palavra vale mais que um golpe."
+      ],[
+        "Esse próximo é perigoso de outro jeito.",
+        "Ele não te ataca com força. Ataca com confusão.",
+        "Espalha mentiras como se fossem verdades.",
+        "Eu já fui assim. Compartilhava tudo sem pensar.",
+        "Mostra pra ele que a verdade ainda importa."
+      ],[
+        "...",
+        "Esse é o que mais dói em mim.",
+        "Porque eu causei isso. Em mim e nos outros.",
+        "Ele se trancou. Construiu muros.",
+        "Não é raiva o que ele sente. É medo.",
+        "Medo de ser esquecido.",
+        "Se puder... não desista dele."
+      ],[
+        "Então você está aqui.",
+        "Você viu o que eu criei.",
+        "Vício. Mentira. Solidão.",
+        "Tudo começou comigo.",
+        "Se você ainda acredita que eu posso voltar...",
+        "...me prove.",
+        "Me convença de que as pessoas ainda importam.",
+        "Que EU ainda importo mais que qualquer código."
+      ]
     ];
-    const lines = dialogues[Math.min(phase, dialogues.length-1)];
-    DialogueSystem.startDialogue('Lucas', lines);
-    SaveSystem.data.dialoguesSeen['lucas_'+phase] = true;
+    DL.start("Lucas",d[Math.min(this.phase,3)])
+  },
 
-    // Check listener achievement
-    let allSeen = true;
-    for (let i = 0; i < 4; i++) {
-        if (!SaveSystem.data.dialoguesSeen['lucas_'+i]) allSeen = false;
+  draw(){
+    // Background
+    const bgs=[P.bg1,P.bg2,P.bg3,P.bg4];
+    cx.fillStyle=bgs[Math.min(this.phase,3)];cx.fillRect(0,0,W,H);
+
+    const room=this.room;
+    const ox=0,oy=0; // simple no-scroll for now
+
+    // Tiles
+    const wallColors=[["#1a2848","#243868"],["#3a1818","#4a2020"],["#181830","#202048"],["#0a200a","#103010"]];
+    const floorColors=[["#0d1828","#101e30"],["#200808","#2a0e0e"],["#0c0c20","#101028"],["#051005","#081808"]];
+    const wc=wallColors[Math.min(this.phase,3)];
+    const fc=floorColors[Math.min(this.phase,3)];
+
+    for(let y=0;y<ROOM_H;y++){
+      for(let x=0;x<ROOM_W;x++){
+        const t=room.tiles[y][x];
+        const dx=ox+x*TILE,dy=oy+y*TILE;
+        if(t===1){
+          cx.fillStyle=wc[(x+y)%2];cx.fillRect(dx,dy,TILE,TILE);
+          cx.fillStyle="rgba(255,255,255,.04)";cx.fillRect(dx,dy,TILE,2)
+        }else if(t===2){
+          cx.fillStyle="#1a3030";cx.fillRect(dx,dy,TILE,TILE);
+          cx.strokeStyle="rgba(0,255,100,.15)";cx.strokeRect(dx+2,dy+2,TILE-4,TILE-4)
+        }else{
+          cx.fillStyle=fc[(x+y)%2];cx.fillRect(dx,dy,TILE,TILE)
+        }
+      }
     }
-    if (allSeen) AchievementSystem.unlock('listener');
+
+    // Phase-specific decorations
+    if(this.phase===0){
+      // Screen glows on pillars
+      for(const px2 of [5,10,15,20,25]){
+        cx.fillStyle="rgba(0,200,255,.12)";
+        cx.fillRect(px2*TILE+4,4*TILE,TILE-8,2*TILE)
+      }
+    }
+    if(this.phase===3){
+      // Grid lines
+      cx.strokeStyle="rgba(0,255,100,.06)";cx.lineWidth=1;
+      for(let x=0;x<W;x+=TILE){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,H);cx.stroke()}
+      for(let y=0;y<H;y+=TILE){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke()}
+    }
+
+    // Save points
+    for(const s of room.saves){
+      const sx=ox+s.x*TILE+TILE/2,sy=ox+s.y*TILE+TILE/2;
+      const pulse=1+Math.sin(frame/10)*.08;
+      cx.save();cx.translate(sx,sy);cx.scale(pulse,pulse);
+      if(s.used){cx.fillStyle="#555";cx.fillRect(-5,-12,10,14)}
+      else{cx.fillStyle=s.preBoss?P.or:P.yl;cx.fillRect(-5,-12,10,14)}
+      cx.restore();
+      cx.fillStyle=P.wh;cx.font="9px monospace";cx.textAlign="center";
+      cx.fillText(s.used?"✓":(s.preBoss?"★BOSS":"★"),sx,sy-16);cx.textAlign="left"
+    }
+
+    // Items
+    for(const it of room.items||[]){
+      if(it.taken)continue;
+      cx.fillStyle=P.gn;
+      cx.fillRect(ox+it.x*TILE+10,oy+it.y*TILE+10,12,12);
+      cx.fillStyle=P.wh;cx.font="8px monospace";cx.textAlign="center";
+      cx.fillText("HP",ox+it.x*TILE+16,oy+it.y*TILE+8);cx.textAlign="left"
+    }
+
+    // NPCs
+    for(const n of room.npcs){
+      const nx=ox+n.x*TILE-8,ny=oy+n.y*TILE-16;
+      px(LUCAS_NPC,nx,ny,3,LUCAS_NPC_PAL);
+      if(!n.talked&&Math.abs(Math.floor((PL.x+12)/TILE)-n.x)<=2&&Math.abs(Math.floor((PL.y+12)/TILE)-n.y)<=2){
+        cx.fillStyle=P.cy;cx.font="11px monospace";cx.textAlign="center";
+        cx.fillText("[A] Falar",nx+18,ny-6);cx.textAlign="left"
+      }
+    }
+
+    // Door
+    if(room.door){
+      const dx=ox+room.door.x*TILE,dy=oy+room.door.y*TILE;
+      cx.fillStyle="#1a0000";cx.fillRect(dx,dy,TILE,TILE);
+      cx.fillStyle=P.rd;cx.fillRect(dx+4,dy+8,24,4);
+      const blink=Math.sin(frame/15)>.3;
+      if(blink){cx.fillStyle=P.wh;cx.font="9px monospace";cx.textAlign="center";
+      cx.fillText("BOSS",dx+16,dy-4);cx.textAlign="left"}
+    }
+
+    // Player
+    PL.draw(ox,oy);
+
+    // HUD
+    this.drawHUD()
+  },
+
+  drawHUD(){
+    box(8,8,180,50,"rgba(0,0,0,.7)",P.wh,1);
+    // HP
+    cx.fillStyle=P.wh;cx.font="12px monospace";cx.fillText("HP",14,28);
+    cx.fillStyle="#333";cx.fillRect(34,17,120,14);
+    cx.fillStyle=PL.hp/PL.maxHp>.5?P.gn:PL.hp/PL.maxHp>.25?P.or:P.rd;
+    cx.fillRect(36,19,(PL.hp/PL.maxHp)*116,10);
+    cx.fillStyle=P.wh;cx.font="11px monospace";cx.fillText(`${PL.hp}/${PL.maxHp}`,160,28);
+    // LV
+    cx.fillText(`LV ${SV.d.lv}`,14,48);
+    // Phase
+    cx.fillStyle="rgba(255,255,255,.3)";cx.font="10px monospace";
+    const names=["Vício Digital","Desinformação","Isolamento Social","Lucas"];
+    cx.textAlign="right";cx.fillText(names[Math.min(this.phase,3)],W-10,20);cx.textAlign="left";
+    // Controls
+    cx.fillStyle="rgba(255,255,255,.2)";cx.font="9px monospace";
+    cx.fillText("Setas: mover | A: interagir",10,H-8)
+  }
+};
+
+// ════════ PLAYER WORLD ════════
+const PL={
+  x:3*TILE,y:8*TILE,
+  hp:20,maxHp:20,
+  dir:1, // 0=up 1=right 2=down 3=left
+  moving:false,
+  moveTimer:0,
+  speed:2.5,
+
+  update(){
+    if(state!=="world")return;
+    let dx=0,dy=0;
+    if(K.l){dx=-this.speed;this.dir=3}
+    if(K.r){dx=this.speed;this.dir=1}
+    if(K.u){dy=-this.speed;this.dir=0}
+    if(K.d){dy=this.speed;this.dir=2}
+    this.moving=dx!==0||dy!==0;
+    if(this.moving)this.moveTimer+=0.12;
+
+    // Collision check
+    const nx=this.x+dx,ny=this.y+dy;
+    const tx1=Math.floor(nx/TILE),ty1=Math.floor(ny/TILE);
+    const tx2=Math.floor((nx+20)/TILE),ty2=Math.floor((ny+24)/TILE);
+
+    let blocked=false;
+    for(let cy2=ty1;cy2<=ty2;cy2++)
+      for(let cx2=tx1;cx2<=tx2;cx2++)
+        if(WR.getTile(cx2,cy2)===1) blocked=true;
+
+    if(!blocked){this.x=nx;this.y=ny}
+    this.x=clamp(this.x,TILE,ROOM_W*TILE-TILE-24);
+    this.y=clamp(this.y,TILE,ROOM_H*TILE-TILE-28)
+  },
+
+  draw(ox,oy){
+    const sprite=this.moving?(Math.floor(this.moveTimer)%2===0?SP_W1:SP_W2):SP_IDLE;
+    const flip=this.dir===3;
+    px(sprite,ox+this.x-8,oy+this.y-24,3,SP_PAL,flip)
+  }
+};
+
+// ════════ BATTLE ════════
+const BT={
+  on:false,boss:null,
+  mode:"player", // player, enemy, anim
+  bullets:[],
+  turnT:0,turnDur:200,
+  sel:0,
+  actions:["ATACAR","FALAR","AGIR","MERCY"],
+  // attack animation
+  atkAnim:0,
+  dmgThisBoss:false,
+
+  bx:250,by:100,bw:460,bh:270,
+
+  start(phase){
+    state="battle";prevState="battle";
+    this.on=true;this.bullets=[];this.mode="player";
+    this.sel=0;this.dmgThisBoss=false;
+    if(phase===0) this.boss=new Boss1();
+    else if(phase===1) this.boss=new Boss2();
+    else if(phase===2) this.boss=new Boss3();
+    else this.boss=new BossF();
+    SL.x=this.bx+this.bw/2;SL.y=this.by+this.bh/2;
+    const m=phase===3?"final":"battle";
+    AU.playM(m)
+  },
+
+  end(){
+    this.on=false;state="world";this.bullets=[];
+    AU.stopM();SV.save()
+  },
+
+  enemyTurn(){this.mode="enemy";this.turnT=this.turnDur},
+
+  update(){
+    if(!this.on||state!=="battle")return;
+
+    if(this.mode==="enemy"){
+      this.turnT--;
+      this.boss.attack(this.bullets);
+      SL.update();
+
+      for(let i=this.bullets.length-1;i>=0;i--){
+        const b=this.bullets[i];
+        b.x+=b.vx;b.y+=b.vy;b.t--;
+        if(Math.hypot(SL.x-b.x,SL.y-b.y)<SL.r+b.r){
+          PL.hp=Math.max(0,PL.hp-1);
+          AU.dmg();this.dmgThisBoss=true;
+          this.bullets.splice(i,1);continue
+        }
+        if(b.t<=0||b.x<this.bx-20||b.x>this.bx+this.bw+20||b.y<this.by-20||b.y>this.by+this.bh+20)
+          this.bullets.splice(i,1)
+      }
+
+      if(PL.hp<=0){this.onLose();return}
+      if(this.turnT<=0){this.mode="player";this.bullets=[]}
+    }
+  },
+
+  onLose(){
+    AU.die();SV.d.deaths++;
+    this.on=false;
+    showStory("Você caiu...",
+      ["Mas sua determinação permanece.","O save pré-boss foi carregado."],
+      ()=>{PL.hp=PL.maxHp;WR.init(WR.phase)})
+  },
+
+  doAction(){
+    const a=this.actions[this.sel];
+    AU.sel();
+    if(a==="ATACAR"){this.boss.onAttack();SV.d.kills;if(!this.boss.resolved)this.enemyTurn()}
+    else if(a==="FALAR"){this.boss.onTalk();SV.d.talks++;if(!this.boss.resolved)this.enemyTurn()}
+    else if(a==="AGIR"){this.boss.onAct();SV.d.acts++;if(!this.boss.resolved)this.enemyTurn()}
+    else{this.boss.onMercy();if(!this.boss.resolved)this.enemyTurn()}
+  },
+
+  draw(){
+    cx.fillStyle="#000";cx.fillRect(0,0,W,H);
+
+    // Boss
+    const bcx=W/2-40,bcy=24;
+    this.boss.drawBoss(bcx,bcy);
+
+    // Boss name
+    cText(this.boss.nm,24,20,P.wh);
+
+    // Boss HP
+    box(300,this.by-20,360,14,"#111",P.wh,1);
+    const hpp=this.boss.hp/this.boss.mhp;
+    cx.fillStyle=hpp>.5?P.gn:hpp>.25?P.or:P.rd;
+    cx.fillRect(302,this.by-18,356*hpp,10);
+
+    // Trust bar
+    if(this.boss.trust!==undefined){
+      box(300,this.by-6,360,8,"#111",P.yl,1);
+      cx.fillStyle=P.yl;
+      cx.fillRect(302,this.by-4,356*(this.boss.trust/this.boss.trustReq),4);
+      cx.fillStyle=P.yl;cx.font="10px monospace";cx.textAlign="center";
+      cx.fillText(`Confiança ${Math.round(this.boss.trust/this.boss.trustReq*100)}%`,W/2,this.by+8);cx.textAlign="left"
+    }
+
+    // Battle box
+    box(this.bx,this.by,this.bw,this.bh,"#000",P.wh,3);
+
+    // Bullets
+    for(const b of this.bullets){
+      cx.fillStyle=b.c||P.rd;
+      cx.beginPath();cx.arc(b.x,b.y,b.r,0,Math.PI*2);cx.fill()
+    }
+
+    // Soul
+    if(this.mode==="enemy") drawSoul(SL.x,SL.y,SL.r);
+
+    if(this.mode==="enemy"){
+      cText("DESVIE!",this.by+this.bh+18,14,P.rd)
+    }
+
+    // Actions
+    const ay=420;
+    const cols=[P.or,P.cy,P.yl,P.gn];
+    for(let i=0;i<4;i++){
+      const ax=80+i*200;
+      const sel=this.sel===i&&this.mode==="player";
+      box(ax,ay,140,40,sel?cols[i]:"#000",cols[i],2);
+      cx.fillStyle=sel?"#000":cols[i];
+      cx.font="bold 16px monospace";cx.textAlign="center";
+      cx.fillText(this.actions[i],ax+70,ay+26);
+    }
+    cx.textAlign="left";
+
+    if(this.mode==="player"){
+      cText("Escolha sua ação",500,16,P.gy)
+    }
+
+    // Player HP
+    cx.fillStyle=P.wh;cx.font="14px monospace";
+    drawSoul(50,495,6);
+    cx.fillText(`HP ${PL.hp}/${PL.maxHp}`,70,500);
+    cx.fillText(`LV ${SV.d.lv}`,200,500)
+  }
+};
+
+// Soul in battle
+const SL={
+  x:480,y:240,r:7,speed:2.8,
+  update(){
+    if(K.l)this.x-=this.speed;
+    if(K.r)this.x+=this.speed;
+    if(K.u)this.y-=this.speed;
+    if(K.d)this.y+=this.speed;
+    this.x=clamp(this.x,BT.bx+this.r,BT.bx+BT.bw-this.r);
+    this.y=clamp(this.y,BT.by+this.r,BT.by+BT.bh-this.r)
+  }
+};
+
+// ════════ BOSS CLASSES ════════
+class BossB{
+  constructor(nm,hp){this.nm=nm;this.hp=hp;this.mhp=hp;this.resolved=false;this.tk=0;this.tc=0;this.mc=0;this.ac=0;this.ready=false;this.tick=0}
+  finish(mercy,title,lines){
+    this.resolved=true;
+    if(mercy){SV.d.mercies++;AU.mrc()}else{SV.d.kills++;AU.hit()}
+    SV.d.bossState[this.nm]={mercy,killed:!mercy};
+    // XP and LV
+    SV.d.xp+=mercy?10:20;
+    if(SV.d.xp>=SV.d.lv*15){SV.d.lv++;PL.maxHp+=5;PL.hp=PL.maxHp;SV.d.maxHp=PL.maxHp;AU.lvl();DL.quick(`LEVEL UP! LV ${SV.d.lv}`)}
+    SV.d.phase=WR.phase+1;SV.d.hp=PL.hp;
+    BT.end();
+    showStory(title,lines,()=>{
+      if(WR.phase>=3) showEnding();
+      else WR.init(WR.phase+1)
+    })
+  }
 }
 
-// ══════════════════════════════════════════════════════
-// SEÇÃO 15: GAME LOOP
-// ══════════════════════════════════════════════════════
-
-function changeScene(name) {
-    if (scenes[name]) {
-        currentScene = scenes[name];
-        if (currentScene.init) currentScene.init();
-        if (name !== 'death' && name !== 'credits' && name !== 'menu' &&
-            name !== 'achievementsScreen')
-            gameState = 'playing';
+class Boss1 extends BossB{
+  constructor(){super("Vício Digital",28)}
+  drawBoss(x,y){px(B1,x,y,3.5,B1P)}
+  attack(arr){
+    this.tick++;
+    if(this.tick%10===0){
+      const a=(Math.random()-.5)*1.2;
+      arr.push({x:480,y:BT.by+10,vx:Math.sin(a)*2.5,vy:1.6+Math.random()*1.2,r:4,c:P.cy,t:130})
     }
+  }
+  onAttack(){this.hp-=8;AU.hit();if(this.hp<=0)this.finish(false,"O Fim de Vício Digital",[
+    "Você destruiu o Vício Digital.",
+    "Ele não era um monstro. Era alguém preso numa tela.",
+    "Alguém que esqueceu como era respirar sem notificação.",
+    "A tecnologia não é o inimigo. O excesso é.",
+    "Você aprendeu algo. Mas a que custo?"
+  ])}
+  onTalk(){this.tc++;
+    const l=["Só mais um minuto... já faz horas.","Eu sei que estou preso. Não sei como sair.",
+      "Você fala como se fosse fácil desligar.","...Talvez se alguém me ajudasse."];
+    DL.quick(l[Math.min(this.tc-1,l.length-1)]);
+    if(this.tc>=3)this.ready=true
+  }
+  onAct(){this.ac++;DL.quick("Você descreve como era a vida antes das telas.")}
+  onMercy(){
+    if(!this.ready){DL.quick("Ele ainda não consegue te ouvir.");return}
+    this.mc++;
+    if(this.mc>=2)this.finish(true,"A Redenção de Vício Digital",[
+      "Você não destruiu. Você estendeu a mão.",
+      "Aos poucos, ele desliga a tela. Olha ao redor.",
+      "Lembra do som do vento. Do rosto das pessoas.",
+      "O primeiro passo é sempre o mais difícil.",
+      "Mas alguém acreditou que ele conseguia."
+    ]);
+    else DL.quick("Ele hesita... mas te ouviu.")
+  }
 }
 
-function gameLoop(timestamp) {
-    deltaTime = timestamp - lastTime;
-    lastTime = timestamp;
-    frameCount++;
-
-    // Clear
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Update
-    if (currentScene?.update) currentScene.update();
-    if (gameState === 'battle') BattleSystem.update();
-    if (gameState === 'story') updateStory();
-    DialogueSystem.update();
-    EffectsSystem.update();
-    AchievementSystem.update();
-
-    // Draw
-    if (currentScene?.draw) currentScene.draw(ctx);
-    if (gameState === 'battle') BattleSystem.draw(ctx);
-    if (gameState === 'story') drawStory(ctx);
-    DialogueSystem.draw(ctx);
-    EffectsSystem.draw(ctx);
-    AchievementSystem.draw(ctx);
-
-    requestAnimationFrame(gameLoop);
+class Boss2 extends BossB{
+  constructor(){super("Desinformação",35)}
+  drawBoss(x,y){px(B2,x,y,3.5,B2P)}
+  attack(arr){
+    this.tick++;
+    if(this.tick%18===0){
+      for(let i=0;i<5;i++){
+        const a=-0.5+i*0.25+Math.PI/2;
+        arr.push({x:480,y:BT.by+30,vx:Math.cos(a)*2.2,vy:Math.sin(a)*2.2,r:4,c:P.rd,t:120})
+      }
+    }
+  }
+  onAttack(){this.hp-=8;AU.hit();if(this.hp<=0)this.finish(false,"O Fim de Desinformação",[
+    "A Desinformação caiu.",
+    "Mas com ela caíram todas as mentiras que sustentavam alguém.",
+    "Alguém que nunca aprendeu a duvidar.",
+    "Que nunca parou para verificar se era verdade.",
+    "Destruir a mentira não cria verdade automaticamente."
+  ])}
+  onTalk(){this.tc++;
+    const l=["Se todo mundo repete, deve ser verdade, certo?",
+      "Eu nunca quis machucar ninguém. Só compartilhei.",
+      "Mas as palavras têm peso. Eu não pensei nisso.",
+      "Você acha que eu ainda posso mudar o que espalhei?"];
+    DL.quick(l[Math.min(this.tc-1,l.length-1)]);
+    if(this.tc>=4)this.ready=true
+  }
+  onAct(){this.ac++;DL.quick("Você mostra a diferença entre fato e opinião.")}
+  onMercy(){
+    if(!this.ready){DL.quick("Ela ainda se esconde atrás de máscaras.");return}
+    this.mc++;
+    if(this.mc>=2)this.finish(true,"A Redenção de Desinformação",[
+      "As máscaras caem. Uma por uma.",
+      "Por baixo delas, há vergonha. E arrependimento.",
+      "Ela começa a perguntar antes de afirmar.",
+      "A checar antes de compartilhar.",
+      "A verdade dá mais trabalho. Mas vale mais."
+    ]);
+    else DL.quick("Uma máscara cai. Ainda faltam outras.")
+  }
 }
 
-// ══════════════════════════════════════════════════════
-// SEÇÃO 16: INPUT
-// ══════════════════════════════════════════════════════
-
-function setupInput() {
-    // Keyboard
-    document.addEventListener('keydown', (e) => {
-        AudioSystem.resume();
-        switch(e.key) {
-            case 'ArrowLeft': case 'a': KEYS.left = true; break;
-            case 'ArrowRight': case 'd': KEYS.right = true; break;
-            case 'ArrowUp': case 'w': KEYS.up = true; break;
-            case 'ArrowDown': case 's': KEYS.down = true; break;
-            case ' ': KEYS.jump = true; e.preventDefault(); break;
-            case 'e': case 'E': KEYS.action = true; break;
-            case 'Escape': KEYS.escape = true; break;
+class Boss3 extends BossB{
+  constructor(){super("Isolamento Social",42);this.phase=1;this.sa=0}
+  drawBoss(x,y){
+    if(this.phase===1) px(B3A,x,y,4,B3AP);
+    else px(B3B,x,y,4,B3BP)
+  }
+  attack(arr){
+    this.tick++;
+    if(this.phase===1){
+      if(this.tick%22===0){
+        for(let i=0;i<8;i++){
+          const a=i*(Math.PI*2/8);
+          arr.push({x:480,y:220,vx:Math.cos(a)*1.8,vy:Math.sin(a)*1.8,r:4,c:P.pr,t:120})
         }
-
-        // Dialogue advance
-        if (e.key === ' ' && DialogueSystem.active) {
-            DialogueSystem.nextLine();
-        }
-    });
-
-    document.addEventListener('keyup', (e) => {
-        switch(e.key) {
-            case 'ArrowLeft': case 'a': KEYS.left = false; break;
-            case 'ArrowRight': case 'd': KEYS.right = false; break;
-            case 'ArrowUp': case 'w': KEYS.up = false; break;
-            case 'ArrowDown': case 's': KEYS.down = false; break;
-            case ' ': KEYS.jump = false; break;
-            case 'e': case 'E': KEYS.action = false; break;
-            case 'Escape': KEYS.escape = false; break;
-        }
-    });
-
-    // Mouse
-    canvas.addEventListener('mousemove', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
-        mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
-    });
-
-    canvas.addEventListener('click', (e) => {
-        AudioSystem.resume();
-        const rect = canvas.getBoundingClientRect();
-        const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
-        const my = (e.clientY - rect.top) * (canvas.height / rect.height);
-
-        if (DialogueSystem.active) {
-            DialogueSystem.nextLine();
-            return;
-        }
-
-        if (gameState === 'story') {
-            clickStory();
-            return;
-        }
-
-        if (currentScene?.click) currentScene.click(mx, my);
-    });
-
-    // Touch (mobile)
-    canvas.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        AudioSystem.resume();
-        const touch = e.touches[0];
-        const rect = canvas.getBoundingClientRect();
-        mouseX = (touch.clientX - rect.left) * (canvas.width / rect.width);
-        mouseY = (touch.clientY - rect.top) * (canvas.height / rect.height);
-
-        if (DialogueSystem.active) {
-            DialogueSystem.nextLine();
-            return;
-        }
-
-        if (gameState === 'story') {
-            clickStory();
-            return;
-        }
-
-        if (currentScene?.click) currentScene.click(mouseX, mouseY);
-    }, { passive: false });
-
-    // Mobile buttons
-    const btnLeft = document.getElementById('btn-left');
-    const btnRight = document.getElementById('btn-right');
-    const btnJump = document.getElementById('btn-jump');
-    const btnAction = document.getElementById('btn-action');
-
-    if (btnLeft) {
-        btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); KEYS.left = true; AudioSystem.resume(); }, {passive:false});
-        btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); KEYS.left = false; }, {passive:false});
+      }
+    }else{
+      if(this.tick%5===0){
+        this.sa+=12;const a=this.sa*Math.PI/180;
+        arr.push({x:480,y:220,vx:Math.cos(a)*2.5,vy:Math.sin(a)*2.5,r:4,c:P.pk,t:120})
+      }
     }
-    if (btnRight) {
-        btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); KEYS.right = true; AudioSystem.resume(); }, {passive:false});
-        btnRight.addEventListener('touchend', (e) => { e.preventDefault(); KEYS.right = false; }, {passive:false});
+  }
+  onAttack(){this.hp-=8;AU.hit();
+    if(this.hp<=this.mhp/2&&this.phase===1){
+      this.phase=2;DL.quick("O Isolamento se transforma!")
     }
-    if (btnJump) {
-        btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); KEYS.jump = true; AudioSystem.resume(); }, {passive:false});
-        btnJump.addEventListener('touchend', (e) => { e.preventDefault(); KEYS.jump = false; }, {passive:false});
-    }
-    if (btnAction) {
-        btnAction.addEventListener('touchstart', (e) => { e.preventDefault(); KEYS.action = true; AudioSystem.resume(); }, {passive:false});
-        btnAction.addEventListener('touchend', (e) => { e.preventDefault(); KEYS.action = false; }, {passive:false});
-    }
-
-    // Detect mobile
-    isMobile = 'ontouchstart' in window ||
-               navigator.maxTouchPoints > 0;
-
-    if (isMobile) {
-        document.getElementById('mobile-controls').style.display = 'block';
-    }
+    if(this.hp<=0)this.finish(false,"O Fim de Isolamento Social",[
+      "O Isolamento se desfez.",
+      "Dentro da bolha quebrada, restou silêncio.",
+      "E a lembrança de alguém que só queria ser lembrado.",
+      "Destruir o muro não é o mesmo que construir uma ponte.",
+      "Às vezes é preciso mais do que força."
+    ])
+  }
+  onTalk(){this.tc++;
+    const l=["Me deixa. Como todo mundo.",
+      "Por que você ainda está aí?",
+      "Eu construí esse muro por uma razão.",
+      "...Mas talvez eu tenha me trancado junto.",
+      "Você realmente se importa?"];
+    DL.quick(l[Math.min(this.tc-1,l.length-1)]);
+    if(this.tc>=4)this.ready=true
+  }
+  onAct(){this.ac++;DL.quick("Você lembra de quando vocês não estavam sozinhos.")}
+  onMercy(){
+    if(!this.ready){DL.quick("A bolha ainda é grossa demais.");return}
+    this.finish(true,"A Redenção de Isolamento Social",[
+      "A bolha não estourou. Ela se abriu.",
+      "De dentro, alguém deu o primeiro passo.",
+      "Tremendo. Inseguro. Mas real.",
+      "Porque alguém ficou do lado de fora esperando.",
+      "Conexão não é sobre tecnologia. É sobre presença."
+    ])
+  }
 }
 
-// ══════════════════════════════════════════════════════
-// SEÇÃO 17: INICIALIZAÇÃO
-// ══════════════════════════════════════════════════════
-
-function init() {
-    // Create canvas
-    canvas = document.createElement('canvas');
-    canvas.width = GAME_CONFIG.width;
-    canvas.height = GAME_CONFIG.height;
-    document.getElementById('game-container').appendChild(canvas);
-    ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-
-    // Init systems
-    SaveSystem.init();
-    AudioSystem.init();
-
-    // Setup input
-    setupInput();
-
-    // Hide loading screen
-    const loadingFill = document.getElementById('loading-fill');
-    const loadingText = document.getElementById('loading-text');
-
-    let progress = 0;
-    const loadInterval = setInterval(() => {
-        progress += 10;
-        loadingFill.style.width = progress + '%';
-        loadingText.textContent = `Carregando... ${progress}%`;
-
-        if (progress >= 100) {
-            clearInterval(loadInterval);
-            setTimeout(() => {
-                document.getElementById('loading').style.opacity = '0';
-                setTimeout(() => {
-                    document.getElementById('loading').style.display = 'none';
-                    changeScene('menu');
-                    gameState = 'menu';
-                    requestAnimationFrame(gameLoop);
-                }, 1000);
-            }, 500);
-        }
-    }, 100);
+class BossF extends BossB{
+  constructor(){super("Lucas",50);this.trust=0;this.trustReq=5;this.attacked=false}
+  drawBoss(x,y){px(BF,x,y,4,BFP)}
+  attack(arr){
+    this.tick++;
+    let spd=this.trust<2?3:this.trust<4?2.2:1.4;
+    let rate=this.trust<2?10:this.trust<4?16:28;
+    if(this.tick%rate===0){
+      const dx=SL.x-480,dy=SL.y-220;
+      const d=Math.hypot(dx,dy)||1;
+      arr.push({x:480,y:220,vx:dx/d*spd,vy:dy/d*spd,r:5,c:P.tc,t:120})
+    }
+  }
+  onAttack(){this.attacked=true;SV.d.attackedFinal=true;this.hp-=8;AU.hit();
+    if(this.hp<=0)this.finish(false,"Lucas caiu",[
+      "Você escolheu a força.",
+      "Lucas caiu antes de entender.",
+      "Talvez ele nunca tenha tido a chance.",
+      "O mundo digital continuou sem ele.",
+      "E sem você."
+    ])
+  }
+  onTalk(){this.tc++;this.trust=Math.min(this.trust+1,this.trustReq);
+    SV.d.finalTrust=this.trust;AU.mrc();
+    const l=["Você não entende o que estou fazendo.",
+      "Eu quero melhorar o mundo! Por que me impede?",
+      "Mas... as pessoas que ficaram para trás...",
+      "Eu... esqueci delas.",
+      "Será que é tarde demais para voltar?",
+      "Talvez... eu precise de alguém."];
+    DL.quick(l[Math.min(this.tc-1,l.length-1)])
+  }
+  onAct(){this.ac++;this.trust=Math.min(this.trust+1,this.trustReq);AU.mrc();
+    const l=["Você lembra do futebol na rua.",
+      "Das conversas sem pressa.",
+      "Das risadas que não precisavam de Wi-Fi.",
+      "Do amigo que ele ainda pode ser."];
+    DL.quick(l[(this.ac-1)%l.length])
+  }
+  onMercy(){
+    if(this.trust<this.trustReq){DL.quick("Lucas ainda resiste. Fale mais com ele.");return}
+    this.finish(true,"Lucas, Meu Melhor Amigo",[
+      "Você não destruiu Lucas.",
+      "Você o encontrou.",
+      "Debaixo de todo aquele código, ele ainda estava lá.",
+      "Assustado. Perdido. Mas humano.",
+      "Vocês se olharam. Sem tela entre vocês.",
+      "E pela primeira vez em muito tempo... ele sorriu."
+    ])
+  }
 }
 
-// Start when page loads
-window.addEventListener('load', init);
+// ════════ STORY PANELS ════════
+let storyData=null;
 
-    </script>
+function showStory(title,lines,cb){
+  state="story";storyData={title,lines,shown:[],idx:0,timer:0,done:false,cb}
+}
+
+function updateStory(){
+  if(!storyData||storyData.done)return;
+  storyData.timer++;
+  if(storyData.timer%80===0&&storyData.idx<storyData.lines.length){
+    storyData.shown.push(storyData.lines[storyData.idx]);
+    storyData.idx++
+  }
+  if(storyData.idx>=storyData.lines.length&&storyData.timer>storyData.lines.length*80+80)
+    storyData.done=true
+}
+
+function drawStory(){
+  if(!storyData)return;
+  cx.fillStyle="#000";cx.fillRect(0,0,W,H);
+  cText(storyData.title,70,26,P.wh);
+  cx.fillStyle=P.gy;cx.font="17px monospace";cx.textAlign="center";
+  storyData.shown.forEach((l,i)=>cx.fillText(l,W/2,150+i*32));
+  if(storyData.done&&Math.floor(frame/25)%2===0){
+    cx.fillStyle=P.yl;cx.fillText("Pressione ENTER ou clique para continuar",W/2,480)
+  }
+  cx.textAlign="left"
+}
+
+function nextStory(){
+  if(!storyData)return;
+  if(!storyData.done){storyData.shown=[...storyData.lines];storyData.done=true;return}
+  const cb=storyData.cb;storyData=null;if(cb)cb()
+}
+
+// ════════ ENDINGS ════════
+function showEnding(){
+  const ending=getEnding();
+  AU.stopM();
+
+  const endings={
+    true_pacifist:{
+      title:"FINAL VERDADEIRO: O Caminho das Palavras",
+      music:"victory",
+      lines:[
+        "Você não levantou a mão contra ninguém.",
+        "Cada alma que cruzou seu caminho foi compreendida.",
+        "O Vício aprendeu a desligar.",
+        "A Desinformação aprendeu a duvidar.",
+        "O Isolamento aprendeu a abrir a porta.",
+        "E Lucas... Lucas lembrou quem ele era.",
+        "Porque alguém nunca desistiu dele.",
+        "O mundo não mudou com código.",
+        "Mudou com compaixão.",
+        "",
+        "FIM VERDADEIRO"
+      ]
+    },
+    pacifist:{
+      title:"FINAL PACIFISTA: Sem Violência",
+      music:"victory",
+      lines:[
+        "Você escolheu não atacar.",
+        "Cada conflito foi resolvido com palavras.",
+        "Lucas voltou. Diferente, mas presente.",
+        "A tecnologia continua. Mas agora com propósito.",
+        "",
+        "FIM PACIFISTA"
+      ]
+    },
+    good:{
+      title:"FINAL BOM: Amizade Restaurada",
+      music:"victory",
+      lines:[
+        "Você mostrou misericórdia a todos.",
+        "Lucas percebeu o erro. Voltou ao mundo real.",
+        "Nem tudo foi perfeito. Mas foi honesto.",
+        "",
+        "FIM BOM"
+      ]
+    },
+    neutral_good:{
+      title:"FINAL NEUTRO: Entre Dois Mundos",
+      music:"sad",
+      lines:[
+        "Você ajudou alguns. Destruiu outros.",
+        "Lucas voltou... mas com cicatrizes.",
+        "O mundo é mais cinza do que preto e branco.",
+        "Talvez da próxima vez, mais vozes sejam ouvidas.",
+        "",
+        "FIM NEUTRO"
+      ]
+    },
+    neutral:{
+      title:"FINAL NEUTRO: Consequências",
+      music:"sad",
+      lines:[
+        "Suas escolhas tiveram peso.",
+        "Algumas almas foram salvas. Outras não.",
+        "Lucas olha para trás com dúvida.",
+        "O futuro é incerto.",
+        "",
+        "FIM NEUTRO"
+      ]
+    },
+    bad:{
+      title:"FINAL RUIM: Força Bruta",
+      music:"sad",
+      lines:[
+        "Você escolheu a violência na maioria das vezes.",
+        "Os problemas foram silenciados, não resolvidos.",
+        "Lucas caiu. A tecnologia continuou sem freio.",
+        "E o mundo ficou um pouco mais frio.",
+        "",
+        "FIM RUIM"
+      ]
+    },
+    genocide:{
+      title:"FINAL GENOCIDA: Destruição Total",
+      music:"sad",
+      lines:[
+        "Você destruiu todos eles.",
+        "Nenhuma voz foi ouvida. Nenhuma mão estendida.",
+        "A tecnologia avançou sozinha.",
+        "Sem freio. Sem alma. Sem pessoas.",
+        "Parabéns. Você venceu.",
+        "Mas a que custo?",
+        "",
+        "FIM GENOCIDA"
+      ]
+    }
+  };
+
+  const e=endings[ending]||endings.neutral;
+  AU.playM(e.music);
+
+  showStory(e.title,e.lines,()=>{showCredits()})
+}
+
+// ════════ CREDITS ════════
+let creditsScroll=0;
+function showCredits(){
+  state="credits";creditsScroll=0;AU.playM("victory")
+}
+
+function drawCredits(){
+  cx.fillStyle="#000";cx.fillRect(0,0,W,H);
+  creditsScroll+=0.4;
+
+  const lines=[
+    "","","",
+    "════════════════════════════",
+    "ENTRE LINHAS E TELAS",
+    "════════════════════════════",
+    "","",
+    "── CRIAÇÃO ──",
+    "VH45de",
+    "","",
+    "── ORIENTAÇÃO ──",
+    "IA para a produção do jogo",
+    "","",
+    "── GAME DESIGN ──",
+    "VH45de",
+    "","",
+    "── PROGRAMAÇÃO ──",
+    "VH45de",
+    "com orientação de IA",
+    "","",
+    "── NARRATIVA ──",
+    "VH45de",
+    "","",
+    "── ARTE PIXEL ──",
+    "Sprites originais por código",
+    "","",
+    "── ÁUDIO ──",
+    "Síntese procedural (Web Audio API)",
+    "","",
+    "── INSPIRAÇÃO ──",
+    "Jogos RPG com batalha por turnos",
+    "e sistema de escolhas morais",
+    "","",
+    "── AGRADECIMENTOS ──",
+    "",
+    "A todos que já se perderam numa tela",
+    "e encontraram o caminho de volta.",
+    "",
+    "A quem já espalhou uma mentira",
+    "e depois aprendeu a pedir desculpa.",
+    "",
+    "A quem já se sentiu sozinho",
+    "e descobriu que alguém se importava.",
+    "",
+    "E a você, que jogou até aqui.",
+    "","",
+    "── MENSAGEM FINAL ──",
+    "",
+    "A tecnologia é uma ferramenta.",
+    "Ela pode conectar ou isolar.",
+    "Informar ou enganar.",
+    "Libertar ou aprisionar.",
+    "",
+    "A escolha sempre foi sua.",
+    "",
+    "Use para construir pontes.",
+    "Não muros.",
+    "","","",
+    "── ESTATÍSTICAS ──",
+    `Mortes: ${SV.d.deaths}`,
+    `Misericórdias: ${SV.d.mercies}`,
+    `Derrotas: ${SV.d.kills}`,
+    `Conversas: ${SV.d.talks}`,
+    `Level: ${SV.d.lv}`,
+    `Final: ${getEnding().replace(/_/g," ").toUpperCase()}`,
+    "","","",
+    "════════════════════════════",
+    "Obrigado por jogar.",
+    "════════════════════════════",
+    "","","","",
+    "Clique para voltar ao menu"
+  ];
+
+  cx.font="16px monospace";cx.textAlign="center";
+  lines.forEach((l,i)=>{
+    const y=H-creditsScroll+i*28;
+    if(y>-20&&y<H+20){
+      if(l.includes("═"))cx.fillStyle=P.cy;
+      else if(l.includes("──"))cx.fillStyle=P.yl;
+      else if(l.includes("VH45de"))cx.fillStyle=P.gn;
+      else if(l.includes("IA"))cx.fillStyle=P.cy;
+      else cx.fillStyle=P.wh;
+      cx.fillText(l,W/2,y)
+    }
+  });
+  cx.textAlign="left"
+}
+
+// ════════ MENU ════════
+const MN={
+  sel:0,opts:["NOVO JOGO","CONTINUAR","LIMPAR SAVE"],
+  stars:[],
+  init(){
+    this.stars=[];for(let i=0;i<60;i++)this.stars.push({x:Math.random()*W,y:Math.random()*H,s:Math.random()*1.5+.5,sp:Math.random()*.3+.1});
+    AU.playM("menu")
+  },
+  update(){
+    for(const s of this.stars){s.y+=s.sp;if(s.y>H){s.y=0;s.x=Math.random()*W}}
+  },
+  draw(){
+    cx.fillStyle="#050818";cx.fillRect(0,0,W,H);
+    for(const s of this.stars){cx.fillStyle=`rgba(200,220,255,${.2+Math.sin(frame/30+s.x)*.2})`;cx.fillRect(s.x,s.y,s.s,s.s)}
+
+    cText("ENTRE LINHAS",130,36,P.cy);
+    cText("E TELAS",170,36,P.cy);
+    cText("Uma história sobre conexões perdidas",210,14,P.gy);
+
+    // Player and Lucas facing each other
+    px(SP_IDLE,W/2-120,250,3,SP_PAL,false);
+    px(LUCAS_NPC,W/2+60,250,3,LUCAS_NPC_PAL,true);
+
+    // Heart between them
+    drawSoul(W/2,285,8);
+
+    for(let i=0;i<this.opts.length;i++){
+      const y=340+i*50;
+      const sel=this.sel===i;
+      box(350,y,260,38,sel?P.cy:"#000",P.cy,2);
+      cx.fillStyle=sel?"#000":P.cy;
+      cx.font="bold 18px monospace";cx.textAlign="center";
+      cx.fillText(this.opts[i],480,y+25)
+    }
+    cx.textAlign="left";
+
+    cx.fillStyle=P.gy;cx.font="10px monospace";
+    cText("Criação: VH45de | Orientação: IA",520,10,P.gy);
+    cText("Setas + Enter | Mobile: botões",530,10,"rgba(255,255,255,.3)")
+  },
+  confirm(){
+    AU.sel();
+    if(this.sel===0){
+      SV.reset();PL.hp=20;PL.maxHp=20;
+      showStory("ENTRE LINHAS E TELAS",[
+        "Em um mundo onde telas substituíram rostos...",
+        "onde notificações valem mais que conversas...",
+        "um estudante percebeu que algo estava errado.",
+        "",
+        "Seu melhor amigo, Lucas, mudou.",
+        "Ficou obcecado com tecnologia.",
+        "Esqueceu das pessoas. Esqueceu de si.",
+        "",
+        "E então, manifestações surgiram.",
+        "Vício. Mentira. Solidão.",
+        "Cada uma alimentada pelo que Lucas criou.",
+        "",
+        "Agora, cabe a você atravessar esse mundo.",
+        "Não apenas com força. Mas com escolha.",
+        "",
+        "Cada ação terá consequência.",
+        "Cada vida poupada ou destruída definirá o final.",
+        "",
+        "A jornada começa agora."
+      ],()=>WR.init(0))
+    }else if(this.sel===1){
+      SV.load();PL.hp=SV.d.hp;PL.maxHp=SV.d.maxHp||20;
+      WR.init(Math.min(SV.d.phase,3))
+    }else{
+      SV.reset();DL.quick("Save apagado.")
+    }
+  }
+};
+
+// ════════ BOOT ════════
+function boot(){
+  state="boot";fadeAlpha=1;
+  setTimeout(()=>{state="menu";MN.init();fade(-1)},500)
+}
+
+// ════════ INPUT ════════
+document.addEventListener("keydown",e=>{
+  AU.res();
+  if(e.key==="ArrowLeft"||e.key==="a")K.l=1;
+  if(e.key==="ArrowRight"||e.key==="d")K.r=1;
+  if(e.key==="ArrowUp"||e.key==="w")K.u=1;
+  if(e.key==="ArrowDown"||e.key==="s")K.d=1;
+  if(e.key==="e"||e.key==="Enter"||e.key===" "){K.a=1;
+    if(state==="dialogue"){e.preventDefault();DL.next()}
+    else if(state==="menu"){e.preventDefault();MN.confirm()}
+    else if(state==="story"){e.preventDefault();nextStory()}
+    else if(state==="credits"){e.preventDefault();state="menu";MN.init()}
+    else if(state==="battle"&&BT.mode==="player"){e.preventDefault();BT.doAction()}
+  }
+  if(e.key==="Escape")K.c=1;
+
+  // Menu/Battle nav
+  if(state==="menu"){
+    if(e.key==="ArrowUp"){MN.sel=(MN.sel+MN.opts.length-1)%MN.opts.length;AU.sel()}
+    if(e.key==="ArrowDown"){MN.sel=(MN.sel+1)%MN.opts.length;AU.sel()}
+  }
+  if(state==="battle"&&BT.mode==="player"){
+    if(e.key==="ArrowLeft"){BT.sel=(BT.sel+3)%4;AU.sel()}
+    if(e.key==="ArrowRight"){BT.sel=(BT.sel+1)%4;AU.sel()}
+  }
+});
+document.addEventListener("keyup",e=>{
+  if(e.key==="ArrowLeft"||e.key==="a")K.l=0;
+  if(e.key==="ArrowRight"||e.key==="d")K.r=0;
+  if(e.key==="ArrowUp"||e.key==="w")K.u=0;
+  if(e.key==="ArrowDown"||e.key==="s")K.d=0;
+  if(e.key==="e"||e.key==="Enter"||e.key===" ")K.a=0;
+  if(e.key==="Escape")K.c=0;
+});
+
+cv.addEventListener("click",e=>{
+  AU.res();
+  const r=cv.getBoundingClientRect();
+  mx=(e.clientX-r.left)*(W/r.width);
+  my=(e.clientY-r.top)*(H/r.height);
+  if(state==="dialogue")DL.next();
+  else if(state==="story")nextStory();
+  else if(state==="menu")MN.confirm();
+  else if(state==="credits"){state="menu";MN.init()}
+  else if(state==="battle"&&BT.mode==="player"){
+    for(let i=0;i<4;i++){
+      const ax=80+i*200;
+      if(mx>=ax&&mx<=ax+140&&my>=420&&my<=460){BT.sel=i;BT.doAction()}
+    }
+  }
+});
+
+// Mobile
+function bindM(id,key){
+  const el=document.getElementById(id);
+  const on=e=>{e.preventDefault();K[key]=1;AU.res()};
+  const off=e=>{e.preventDefault();K[key]=0};
+  el.addEventListener("touchstart",on,{passive:false});
+  el.addEventListener("touchend",off,{passive:false})
+}
+bindM("ml","l");bindM("mr","r");bindM("mu","u");bindM("md","d");
+document.getElementById("ma").addEventListener("touchstart",e=>{
+  e.preventDefault();AU.res();K.a=1;
+  if(state==="dialogue")DL.next();
+  else if(state==="story")nextStory();
+  else if(state==="menu")MN.confirm();
+  else if(state==="credits"){state="menu";MN.init()}
+  else if(state==="battle"&&BT.mode==="player")BT.doAction();
+},{passive:false});
+document.getElementById("ma").addEventListener("touchend",e=>{e.preventDefault();K.a=0},{passive:false});
+
+// ════════ MAIN LOOP ════════
+function tick(){
+  frame++;
+  updateFade();
+  DL.update();
+
+  if(state==="menu") MN.update();
+  else if(state==="world") WR.update();
+  else if(state==="battle") BT.update();
+  else if(state==="story") updateStory();
+
+  // Draw
+  cx.clearRect(0,0,W,H);
+
+  if(state==="boot"){cx.fillStyle="#000";cx.fillRect(0,0,W,H)}
+  else if(state==="menu") MN.draw();
+  else if(state==="world"||state==="dialogue") WR.draw();
+  else if(state==="battle") BT.draw();
+  else if(state==="story") drawStory();
+  else if(state==="credits") drawCredits();
+
+  DL.draw();
+  drawFade();
+
+  requestAnimationFrame(tick)
+}
+
+boot();
+tick();
+</script>
 </body>
 </html>
